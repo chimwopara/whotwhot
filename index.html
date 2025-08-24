@@ -251,7 +251,7 @@
     </div>
 
     <!-- Single Player Setup -->
-    <div id="setup-screen" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+    <div id="setup-screen" class="fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 hidden">
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
             <h2 class="text-3xl font-bold mb-2">Single Player</h2>
             <p class="mb-6 text-gray-400">Game Setup</p>
@@ -275,7 +275,7 @@
     </div>
 
     <!-- Multiplayer Setup -->
-    <div id="multiplayer-setup" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+    <div id="multiplayer-setup" class="fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 hidden">
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
             <h2 class="text-3xl font-bold mb-6">Multiplayer</h2>
             <div class="flex flex-col gap-4">
@@ -303,7 +303,7 @@
     </div>
 
     <!-- Game Mode Selection -->
-    <div id="game-mode-screen" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+    <div id="game-mode-screen" class="fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 hidden">
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
             <h2 class="text-3xl font-bold mb-6">Select Game Mode</h2>
             <div class="flex flex-col gap-4">
@@ -323,7 +323,52 @@
     </div>
 
     <!-- Multiplayer Lobby -->
-    <div id="lobby-screen" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+    <div id="lobby-screen" class="fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
+            <h2 class="text-3xl font-bold mb-2">Game Lobby</h2>
+            <div class="mb-4">
+                <p class="text-gray-400 mb-2">Game Code:</p>
+                <p id="lobby-game-code" class="text-4xl font-bold tracking-wider text-green-400"></p>
+            </div>
+            <div class="mb-4">
+                <p class="text-gray-400 mb-2">Game Mode:</p>
+                <p id="lobby-game-mode" class="text-lg font-semibold text-blue-400"></p>
+            </div>
+            <div class="mb-6">
+                <p class="text-gray-400 mb-2">Players:</p>
+                <div id="lobby-players" class="space-y-2"></div>
+            </div>
+            <div class="flex gap-4">
+                <button id="leave-lobby-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Leave
+                </button>
+                <button id="start-multiplayer-game-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors hidden">
+                    Start Game
+                </button>
+            </div>
+            <div id="waiting-message" class="mt-4 text-gray-400">Waiting for host to start game...</div>
+        </div>
+    </div>
+
+    <!-- Ready Check Screen -->
+    <div id="ready-check-screen" class="fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
+            <h2 class="text-3xl font-bold mb-2">Ready Check</h2>
+            <p class="text-gray-400 mb-6">Are you ready to start the game?</p>
+            <div class="mb-6">
+                <div id="ready-players-list" class="space-y-2 mb-4"></div>
+            </div>
+            <div class="flex gap-4">
+                <button id="ready-yes-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    ✓ Ready
+                </button>
+                <button id="ready-no-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    ✗ Not Ready
+                </button>
+            </div>
+            <div id="waiting-for-ready" class="mt-4 text-gray-400 hidden">Waiting for other players...</div>
+        </div>
+    </div>
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
             <h2 class="text-3xl font-bold mb-2">Game Lobby</h2>
             <div class="mb-4">
@@ -432,6 +477,7 @@
         const multiplayerSetup = document.getElementById('multiplayer-setup');
         const gameModeScreen = document.getElementById('game-mode-screen');
         const lobbyScreen = document.getElementById('lobby-screen');
+        const readyCheckScreen = document.getElementById('ready-check-screen');
         const gameContainer = document.getElementById('game-container');
 
         // Game State
@@ -485,30 +531,36 @@
             gameMode = 'single';
             mainMenu.classList.add('hidden');
             gameModeScreen.classList.remove('hidden');
+            gameModeScreen.classList.add('flex');
         });
 
         document.getElementById('multiplayer-btn').addEventListener('click', () => {
             gameMode = 'multiplayer';
             mainMenu.classList.add('hidden');
             multiplayerSetup.classList.remove('hidden');
+            multiplayerSetup.classList.add('flex');
         });
 
         document.getElementById('back-to-menu-single').addEventListener('click', () => {
             setupScreen.classList.add('hidden');
+            setupScreen.classList.remove('flex');
             mainMenu.classList.remove('hidden');
         });
 
         document.getElementById('back-to-menu-multi').addEventListener('click', () => {
             multiplayerSetup.classList.add('hidden');
+            multiplayerSetup.classList.remove('flex');
             mainMenu.classList.remove('hidden');
         });
 
         document.getElementById('back-to-setup').addEventListener('click', () => {
             gameModeScreen.classList.add('hidden');
+            gameModeScreen.classList.remove('flex');
             if (gameMode === 'single') {
                 mainMenu.classList.remove('hidden');
             } else {
                 multiplayerSetup.classList.remove('hidden');
+                multiplayerSetup.classList.add('flex');
             }
         });
 
@@ -516,20 +568,26 @@
         document.getElementById('counting-mode').addEventListener('click', () => {
             gameType = 'counting';
             gameModeScreen.classList.add('hidden');
+            gameModeScreen.classList.remove('flex');
             if (gameMode === 'single') {
                 setupScreen.classList.remove('hidden');
+                setupScreen.classList.add('flex');
             } else {
                 multiplayerSetup.classList.remove('hidden');
+                multiplayerSetup.classList.add('flex');
             }
         });
 
         document.getElementById('elimination-mode').addEventListener('click', () => {
             gameType = 'elimination';
             gameModeScreen.classList.add('hidden');
+            gameModeScreen.classList.remove('flex');
             if (gameMode === 'single') {
                 setupScreen.classList.remove('hidden');
+                setupScreen.classList.add('flex');
             } else {
                 multiplayerSetup.classList.remove('hidden');
+                multiplayerSetup.classList.add('flex');
             }
         });
 
@@ -567,6 +625,7 @@
                 await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}`), gameData);
                 
                 multiplayerSetup.classList.add('hidden');
+                multiplayerSetup.classList.remove('flex');
                 showLobby();
             } catch (error) {
                 console.error('Error creating game:', error);
@@ -617,6 +676,7 @@
                 });
 
                 multiplayerSetup.classList.add('hidden');
+                multiplayerSetup.classList.remove('flex');
                 showLobby();
             } catch (error) {
                 console.error('Error joining game:', error);
@@ -626,6 +686,7 @@
 
         function showLobby() {
             lobbyScreen.classList.remove('hidden');
+            lobbyScreen.classList.add('flex');
             document.getElementById('lobby-game-code').textContent = currentGameId;
             document.getElementById('lobby-game-mode').textContent = gameType === 'counting' ? 'Counting Cards Mode' : 'Last Standing Mode';
             
@@ -645,8 +706,14 @@
             gameStateRef = window.firebase.ref(window.firebase.database, `games/${currentGameId}`);
             window.firebase.onValue(gameStateRef, (snapshot) => {
                 const gameData = snapshot.val();
-                if (gameData && gameData.status === 'playing') {
-                    startMultiplayerGame(gameData);
+                if (gameData) {
+                    if (gameData.status === 'ready_check') {
+                        showReadyCheck(gameData);
+                        // Update ready players list in real time
+                        updateReadyPlayersList(gameData.readyPlayers || {}, gameData.players);
+                    } else if (gameData.status === 'playing') {
+                        startMultiplayerGame(gameData);
+                    }
                 }
             });
         }
@@ -681,7 +748,9 @@
                 if (gameStateRef) window.firebase.off(gameStateRef);
                 
                 lobbyScreen.classList.add('hidden');
+                lobbyScreen.classList.remove('flex');
                 multiplayerSetup.classList.remove('hidden');
+                multiplayerSetup.classList.add('flex');
                 currentGameId = null;
                 playerId = null;
                 isHost = false;
@@ -703,12 +772,149 @@
                     return;
                 }
 
-                // Update game status and initialize game state
+                // Start ready check phase
+                const gameUpdate = {
+                    status: 'ready_check',
+                    startedAt: window.firebase.serverTimestamp(),
+                    readyPlayers: {},
+                    players: playersData
+                };
+                
+                await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}`), gameUpdate);
+
+            } catch (error) {
+                console.error('Error starting ready check:', error);
+                showToast('Error starting ready check', 'error');
+            }
+        });
+
+        function startMultiplayerGame(gameData) {
+            if (gameData.status === 'ready_check') {
+                showReadyCheck(gameData);
+            } else if (gameData.status === 'playing') {
+                lobbyScreen.classList.add('hidden');
+                lobbyScreen.classList.remove('flex');
+                document.getElementById('ready-check-screen').classList.add('hidden');
+                document.getElementById('ready-check-screen').classList.remove('flex');
+                gameContainer.classList.remove('hidden');
+                gameContainer.classList.add('flex');
+                
+                // Convert Firebase players to game format
+                const firebasePlayers = Object.values(gameData.players);
+                players = firebasePlayers.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    isHuman: p.id === playerId,
+                    regularHand: [],
+                    actionHand: p.id === playerId ? [] : undefined,
+                    hand: p.id === playerId ? undefined : [],
+                    avatar: `https://placehold.co/50x50/4a5568/ffffff?text=${p.name.charAt(0)}`
+                }));
+
+                // Start the actual game
+                initializeMultiplayerGame(gameData.gameState);
+            }
+        }
+
+        function showReadyCheck(gameData) {
+            lobbyScreen.classList.add('hidden');
+            lobbyScreen.classList.remove('flex');
+            document.getElementById('ready-check-screen').classList.remove('hidden');
+            document.getElementById('ready-check-screen').classList.add('flex');
+            
+            // Update ready players list
+            updateReadyPlayersList(gameData.readyPlayers || {}, gameData.players);
+        }
+
+        function updateReadyPlayersList(readyPlayers, allPlayers) {
+            const readyListDiv = document.getElementById('ready-players-list');
+            readyListDiv.innerHTML = '';
+            
+            Object.values(allPlayers).forEach(player => {
+                const playerDiv = document.createElement('div');
+                const isReady = readyPlayers[player.id];
+                const readyIcon = isReady === true ? '✓' : isReady === false ? '✗' : '⏳';
+                const readyColor = isReady === true ? 'text-green-400' : isReady === false ? 'text-red-400' : 'text-yellow-400';
+                const readyText = isReady === true ? 'Ready' : isReady === false ? 'Not Ready' : 'Waiting...';
+                
+                playerDiv.className = 'bg-gray-700 p-2 rounded flex justify-between items-center';
+                playerDiv.innerHTML = `
+                    <span>${player.name}</span>
+                    <span class="${readyColor}">${readyIcon} ${readyText}</span>
+                `;
+                readyListDiv.appendChild(playerDiv);
+            });
+        }
+
+        // Ready check event listeners
+        document.getElementById('ready-yes-btn').addEventListener('click', async () => {
+            await setReadyStatus(true);
+        });
+
+        document.getElementById('ready-no-btn').addEventListener('click', async () => {
+            await setReadyStatus(false);
+        });
+
+        async function setReadyStatus(ready) {
+            try {
+                await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}/readyPlayers/${playerId}`), ready);
+                
+                document.getElementById('ready-yes-btn').style.display = ready ? 'block' : 'none';
+                document.getElementById('ready-no-btn').style.display = ready ? 'none' : 'block';
+                document.getElementById('waiting-for-ready').classList.remove('hidden');
+                
+                // Check if all players are ready
+                const gameSnapshot = await window.firebase.get(window.firebase.ref(window.firebase.database, `games/${currentGameId}`));
+                const gameData = gameSnapshot.val();
+                
+                if (isHost && gameData) {
+                    checkAllPlayersReady(gameData);
+                }
+            } catch (error) {
+                console.error('Error setting ready status:', error);
+            }
+        }
+
+        async function checkAllPlayersReady(gameData) {
+            const players = gameData.players || {};
+            const readyPlayers = gameData.readyPlayers || {};
+            
+            const allPlayerIds = Object.keys(players);
+            const readyCount = allPlayerIds.filter(id => readyPlayers[id] === true).length;
+            const notReadyCount = allPlayerIds.filter(id => readyPlayers[id] === false).length;
+            
+            // If all players have responded
+            if (readyCount + notReadyCount === allPlayerIds.length) {
+                if (readyCount > notReadyCount) {
+                    // Majority ready - start game
+                    await startGameAfterReadyCheck(gameData);
+                } else if (readyCount === notReadyCount) {
+                    // Tie - random selection
+                    const randomReady = Math.random() < 0.5;
+                    if (randomReady) {
+                        showToast('Tie! Randomly starting game...', 'info');
+                        setTimeout(() => startGameAfterReadyCheck(gameData), 2000);
+                    } else {
+                        showToast('Tie! Returning to lobby...', 'info');
+                        setTimeout(() => returnToLobby(), 2000);
+                    }
+                } else {
+                    // Majority not ready - return to lobby
+                    showToast('Majority not ready. Returning to lobby...', 'info');
+                    setTimeout(() => returnToLobby(), 2000);
+                }
+            }
+        }
+
+        async function startGameAfterReadyCheck(gameData) {
+            try {
+                const playerList = Object.values(gameData.players);
+                const randomStarterIndex = Math.floor(Math.random() * playerList.length);
+                
                 const gameUpdate = {
                     status: 'playing',
-                    startedAt: window.firebase.serverTimestamp(),
                     gameState: {
-                        currentPlayerIndex: 0,
+                        currentPlayerIndex: randomStarterIndex,
                         deck: createDeck(),
                         discardPile: [],
                         activeStack: null,
@@ -717,42 +923,29 @@
                         turnsToSkip: 0,
                         generalMarketState: { active: false, initiator: null, respondedMask: [], playersWhoPlayed: [] },
                         eliminatedPlayers: []
-                    }
+                    },
+                    players: gameData.players
                 };
 
-                // Shuffle deck
                 shuffleDeck(gameUpdate.gameState.deck);
                 
-                await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}`), {
-                    ...gameUpdate,
-                    players: playersData
-                });
-
+                await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}`), gameUpdate);
             } catch (error) {
-                console.error('Error starting game:', error);
-                showToast('Error starting game', 'error');
+                console.error('Error starting game after ready check:', error);
             }
-        });
+        }
 
-        function startMultiplayerGame(gameData) {
-            lobbyScreen.classList.add('hidden');
-            gameContainer.classList.remove('hidden');
-            gameContainer.classList.add('flex');
-            
-            // Convert Firebase players to game format
-            const firebasePlayers = Object.values(gameData.players);
-            players = firebasePlayers.map(p => ({
-                id: p.id,
-                name: p.name,
-                isHuman: p.id === playerId,
-                regularHand: [],
-                actionHand: p.id === playerId ? [] : undefined,
-                hand: p.id === playerId ? undefined : [],
-                avatar: `https://placehold.co/50x50/4a5568/ffffff?text=${p.name.charAt(0)}`
-            }));
-
-            // Start the actual game
-            initializeMultiplayerGame(gameData.gameState);
+        async function returnToLobby() {
+            try {
+                await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}/status`), 'waiting');
+                await window.firebase.remove(window.firebase.ref(window.firebase.database, `games/${currentGameId}/readyPlayers`));
+                
+                document.getElementById('ready-check-screen').classList.add('hidden');
+                document.getElementById('ready-check-screen').classList.remove('flex');
+                showLobby();
+            } catch (error) {
+                console.error('Error returning to lobby:', error);
+            }
         }
 
         async function initializeMultiplayerGame(initialGameState) {
@@ -769,12 +962,26 @@
 
             updateStatus("Dealing cards...");
             renderGame();
+            await new Promise(r => setTimeout(r, 800));
 
             // Deal initial cards
             for (let i = 0; i < 6; i++) {
                 for(let j = 0; j < players.length; j++) {
                     if (eliminatedPlayers.includes(j)) continue;
-                    await dealCardToPlayer(j);
+                    const card = drawPile.pop();
+                    if (card) {
+                        const player = players[j];
+                        if (player.isHuman) {
+                            if (ACTION_CARDS.includes(card.number)) {
+                                player.actionHand.push(card);
+                            } else {
+                                player.regularHand.push(card);
+                            }
+                        } else {
+                            player.hand.push(card);
+                        }
+                    }
+                    await new Promise(r => setTimeout(r, 50)); // Small delay for visual effect
                 }
             }
             
@@ -785,6 +992,20 @@
             
             renderGame();
             updateStatusMessage();
+
+            // Update server with initial hands (only the host should do this)
+            if (isHost) {
+                await updateServerGameState({
+                    discardPile,
+                    currentPlayerIndex,
+                    activeStack,
+                    whotRequest,
+                    holdOnActive,
+                    turnsToSkip,
+                    generalMarketState,
+                    eliminatedPlayers
+                });
+            }
 
             // Set up real-time sync
             setupMultiplayerSync();
@@ -1306,7 +1527,11 @@
                     .map(Number)
                     .filter(num => {
                         const cardsWithNum = hand.filter(c => c.number === num);
-                        return counts[num] > 1 && cardsWithNum.some(card => isCardPlayable(card));
+                        if (counts[num] < 2) return false;
+                        
+                        // Use universal ordering to check if push is valid
+                        const sortedCards = sortCardsForValidPlay(cardsWithNum);
+                        return isCardPlayable(sortedCards[0]);
                     });
             };
 
@@ -1314,17 +1539,25 @@
             const actionGroups = findPlayablePushableGroups(humanPlayer.actionHand);
 
             regularGroups.forEach(num => {
+                const cardsWithNum = humanPlayer.regularHand.filter(c => c.number === num);
+                const sortedCards = sortCardsForValidPlay(cardsWithNum);
+                const firstCard = sortedCards[0];
+                
                 const button = document.createElement('button');
                 button.className = 'push-button';
-                button.textContent = `Push ${num}s`;
+                button.innerHTML = `Push ${num}s<br><small>(${firstCard.shape} first)</small>`;
                 button.onclick = () => playPushGroup(num, 'regular');
                 leftPushButtonsDiv.appendChild(button);
             });
 
             actionGroups.forEach(num => {
+                const cardsWithNum = humanPlayer.actionHand.filter(c => c.number === num);
+                const sortedCards = sortCardsForValidPlay(cardsWithNum);
+                const firstCard = sortedCards[0];
+                
                 const button = document.createElement('button');
                 button.className = 'push-button';
-                button.textContent = `Push ${num}s`;
+                button.innerHTML = `Push ${num}s<br><small>(${firstCard.shape} first)</small>`;
                 button.onclick = () => playPushGroup(num, 'action');
                 rightPushButtonsDiv.appendChild(button);
             });
@@ -1612,6 +1845,38 @@
             await playCard(card, humanPlayerIndex);
         }
 
+        // Universal function to sort cards for proper play order
+        function sortCardsForValidPlay(cardsToPlay) {
+            if (cardsToPlay.length <= 1) return cardsToPlay;
+            
+            const topCard = discardPile[discardPile.length - 1];
+            if (!topCard) return cardsToPlay;
+            
+            // Sort cards to ensure valid play order
+            return cardsToPlay.sort((a, b) => {
+                // Priority 1: Cards that match current top card's shape
+                if (whotRequest) {
+                    // If there's a whot request, prioritize the requested shape
+                    if (a.shape === whotRequest.shape && b.shape !== whotRequest.shape) return -1;
+                    if (b.shape === whotRequest.shape && a.shape !== whotRequest.shape) return 1;
+                } else {
+                    // Normal shape matching priority
+                    if (a.shape === topCard.shape && b.shape !== topCard.shape) return -1;
+                    if (b.shape === topCard.shape && a.shape !== topCard.shape) return 1;
+                }
+                
+                // Priority 2: Whot cards (can be played anytime)
+                if (a.number === 20 && b.number !== 20) return -1;
+                if (b.number === 20 && a.number !== 20) return 1;
+                
+                // Priority 3: Cards that match the number
+                if (a.number === topCard.number && b.number !== topCard.number) return -1;
+                if (b.number === topCard.number && a.number !== topCard.number) return 1;
+                
+                return 0;
+            });
+        }
+
         async function playPushGroup(number, handName) {
             const humanPlayerIndex = players.findIndex(p => p.isHuman);
             if (currentPlayerIndex !== humanPlayerIndex) return;
@@ -1619,8 +1884,17 @@
             const humanPlayer = players[humanPlayerIndex];
             let sourceHand = handName === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
             
-            const cardsToPlay = sourceHand.filter(c => c.number === number);
+            let cardsToPlay = sourceHand.filter(c => c.number === number);
             if (cardsToPlay.length < 2 || !cardsToPlay.some(isCardPlayable)) {
+                return;
+            }
+
+            // UNIVERSAL LAW: Sort cards to ensure proper play order
+            cardsToPlay = sortCardsForValidPlay(cardsToPlay);
+
+            // Verify the first card can be played
+            if (!isCardPlayable(cardsToPlay[0])) {
+                showToast("Cannot push these cards - invalid sequence", "error");
                 return;
             }
 
@@ -1944,7 +2218,7 @@
             endTurn();
         }
 
-        // Bot AI functions
+        // Bot AI functions with universal card ordering
         async function botTurn() {
             updateStatusMessage();
             await new Promise(r => setTimeout(r, 1200));
@@ -1991,12 +2265,63 @@
 
             const playableCards = bot.hand.filter(c => isCardPlayable(c));
             if (playableCards.length > 0) {
-                const specialCard = playableCards.find(c => [1, 2, 5, 8, 14, 20].includes(c.number));
-                let cardToPlay = specialCard || playableCards[0];
+                // Check for push opportunities (multiple cards of same number)
+                const numberCounts = {};
+                playableCards.forEach(card => {
+                    numberCounts[card.number] = (numberCounts[card.number] || 0) + 1;
+                });
                 
-                bot.hand = bot.hand.filter(c => c !== cardToPlay);
-                await animateCardPlayFromComputer(cardToPlay);
-                await playCard(cardToPlay, currentPlayerIndex);
+                const pushableNumber = Object.keys(numberCounts).find(num => numberCounts[num] > 1);
+                
+                if (pushableNumber) {
+                    // Bot will push multiple cards - use universal ordering
+                    let cardsToPlay = bot.hand.filter(c => c.number === parseInt(pushableNumber));
+                    cardsToPlay = sortCardsForValidPlay(cardsToPlay);
+                    
+                    // Remove all cards of this number from bot's hand
+                    bot.hand = bot.hand.filter(c => c.number !== parseInt(pushableNumber));
+                    
+                    // Play cards in correct order
+                    for (const card of cardsToPlay) {
+                        await animateCardPlayFromComputer(card);
+                        discardPile.push(card);
+                        renderGame();
+                        await new Promise(r => setTimeout(r, 100));
+                    }
+                    
+                    const lastCard = cardsToPlay[cardsToPlay.length - 1];
+                    
+                    // Handle the last card's effect
+                    const hasWon = await checkWinCondition(currentPlayerIndex);
+                    if (hasWon) return;
+
+                    whotRequest = null;
+                    if (lastCard.number !== 1) holdOnActive = false;
+
+                    if (gameMode === 'multiplayer') {
+                        await updateServerGameState({
+                            discardPile,
+                            currentPlayerIndex,
+                            activeStack,
+                            whotRequest,
+                            holdOnActive,
+                            turnsToSkip,
+                            generalMarketState,
+                            eliminatedPlayers
+                        });
+                    }
+
+                    await applyCardEffect(lastCard, currentPlayerIndex);
+                    return;
+                } else {
+                    // Single card play - prioritize special cards
+                    const specialCard = playableCards.find(c => [1, 2, 5, 8, 14, 20].includes(c.number));
+                    let cardToPlay = specialCard || playableCards[0];
+                    
+                    bot.hand = bot.hand.filter(c => c !== cardToPlay);
+                    await animateCardPlayFromComputer(cardToPlay);
+                    await playCard(cardToPlay, currentPlayerIndex);
+                }
             } else {
                 holdOnActive = false;
                 await dealCardToPlayer(currentPlayerIndex);
@@ -2377,8 +2702,37 @@
             }
         });
 
+        // Initialize the game - ensure all screens are hidden except main menu
+        function initializeApp() {
+            // Hide all screens except main menu (remove flex from all)
+            setupScreen.classList.add('hidden');
+            setupScreen.classList.remove('flex');
+            multiplayerSetup.classList.add('hidden');
+            multiplayerSetup.classList.remove('flex');
+            gameModeScreen.classList.add('hidden');
+            gameModeScreen.classList.remove('flex');
+            lobbyScreen.classList.add('hidden');
+            lobbyScreen.classList.remove('flex');
+            document.getElementById('ready-check-screen').classList.add('hidden');
+            document.getElementById('ready-check-screen').classList.remove('flex');
+            gameContainer.classList.add('hidden');
+            gameContainer.classList.remove('flex');
+            
+            // Show main menu only
+            mainMenu.classList.remove('hidden');
+        }
+
         // Initialize the game
         console.log('Nigerian Whot Game - Multiplayer Edition Loaded');
+        
+        // Initialize app state on load
+        window.addEventListener('DOMContentLoaded', initializeApp);
+        
+        // Initialize drag and drop when page loads
+        window.onload = () => {
+            setupDragAndDrop();
+            initializeApp(); // Ensure proper initialization
+        };
         
         // Debug helper (remove in production)
         window.debugGame = {
