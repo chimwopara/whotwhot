@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nigerian Whot Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tinos:wght@700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            touch-action: manipulation;
+        }
+        .card {
+            width: 120px;
+            height: 180px;
+            border: 1px solid #888;
+            border-radius: 10px;
+            background-color: #f8f8f8;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            color: #8C1C13;
+            font-family: 'Tinos', serif;
+            font-weight: 700;
+        }
+        .card-back {
+            background-color: #8C1C13;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+        }
+        .whot-text-back {
+            font-family: 'Dancing Script', cursive;
+            font-size: 34px;
+            color: white;
+            line-height: 1;
+        }
+        .card-symbol {
+            width: 70px;
+            height: 70px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .corner {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 24px;
+            line-height: 1;
+        }
+        .top-left { top: 10px; left: 10px; }
+        .bottom-right { bottom: 10px; right: 10px; transform: rotate(180deg); }
+        .whot-text {
+            font-family: 'Dancing Script', cursive;
+            font-size: 38px;
+        }
+        .player-hand-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 220px;
+            position: relative;
+        }
+        .player-hand-container .card {
+            position: absolute;
+            transition: transform 0.3s ease;
+        }
+        .opponent-profile {
+            position: relative;
+            width: 140px;
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .active-turn {
+            background-color: #ca8a04;
+            box-shadow: 0 0 15px #ca8a04;
+        }
+        .player-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid white;
+            object-fit: cover;
+            background-color: #4a5568;
+        }
+        .card-stack-container {
+            position: relative;
+            width: 120px;
+            height: 180px;
+        }
+        .card-stack-container .card {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #rotate-device-overlay { display: none; }
+        @media (max-width: 768px) and (orientation: portrait) {
+            body > *:not(#rotate-device-overlay) { display: none !important; }
+            #rotate-device-overlay { display: flex; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4 overflow-hidden">
+
+    <!-- Main Menu -->
+    <div id="main-menu" class="text-center">
+        <h1 class="text-6xl font-bold mb-4" style="font-family: 'Dancing Script', cursive;">Nigerian Whot</h1>
+        <div class="space-y-4">
+            <button id="single-player-btn" class="w-64 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Single Player</button>
+            <button id="multiplayer-btn" class="w-64 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Multiplayer</button>
+        </div>
+    </div>
+
+    <!-- Single Player Setup -->
+    <div id="single-player-setup" class="hidden bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
+        <h2 class="text-3xl font-bold mb-6">Single Player Setup</h2>
+        <div class="mb-6">
+            <label for="player-count" class="block mb-2 text-lg font-medium">Select Number of Opponents</label>
+            <div class="flex items-center justify-center gap-4">
+                <button id="decrement-players" class="px-4 py-2 bg-amber-600 rounded-md text-xl font-bold">-</button>
+                <span id="player-count-display" class="text-3xl font-bold w-16 text-center">1</span>
+                <button id="increment-players" class="px-4 py-2 bg-amber-600 rounded-md text-xl font-bold">+</button>
+            </div>
+        </div>
+        <button id="start-sp-game-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Start Game</button>
+         <button class="back-to-main w-full mt-4 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Back</button>
+    </div>
+
+    <!-- Multiplayer Setup -->
+    <div id="multiplayer-setup" class="hidden bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
+        <h2 class="text-3xl font-bold mb-6">Multiplayer</h2>
+        <div class="space-y-4">
+            <input type="text" id="player-name-input" placeholder="Enter your name" class="w-full p-3 bg-gray-700 rounded-lg text-white text-center">
+            <button id="create-game-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Create Game</button>
+            <div class="flex items-center gap-2">
+                <input type="text" id="join-game-input" placeholder="Enter Game ID" class="w-full p-3 bg-gray-700 rounded-lg text-white text-center">
+                <button id="join-game-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Join</button>
+            </div>
+             <button class="back-to-main w-full mt-4 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Back</button>
+        </div>
+    </div>
+    
+    <!-- Lobby Screen -->
+    <div id="lobby-screen" class="hidden bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-lg">
+        <h2 class="text-3xl font-bold mb-2">Lobby</h2>
+        <div class="mb-4">
+            <p class="text-gray-400">Share this Game ID with your friends:</p>
+            <p id="game-id-display" class="text-2xl font-mono bg-gray-700 p-2 rounded mt-2 cursor-pointer"></p>
+        </div>
+        <h3 class="text-xl font-bold mb-4">Players:</h3>
+        <div id="lobby-players-list" class="space-y-2 text-left mb-6"></div>
+        <button id="start-mp-game-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors disabled:bg-gray-500" disabled>Start Game</button>
+    </div>
+
+
+    <!-- Game Container -->
+    <div id="game-container" class="w-full max-w-screen-2xl mx-auto flex-col items-center justify-between flex-grow hidden">
+        <!-- Opponents Area -->
+        <div class="w-full">
+            <div id="opponents-area" class="flex flex-wrap justify-center items-start gap-4 md:gap-12"></div>
+        </div>
+
+        <!-- Game Board -->
+        <div id="game-board" class="flex items-center justify-center gap-4 md:gap-16 my-2 w-full">
+            <div id="draw-pile" class="card-stack-container"></div>
+            <div id="game-status" class="text-center text-2xl md:text-3xl font-bold leading-tight w-28 md:w-40"></div>
+            <div id="discard-pile" class="relative w-[300px] h-[180px]"></div>
+        </div>
+        
+        <!-- Player's Area -->
+        <div class="w-full p-2 md:p-4 bg-gray-800/50 rounded-xl">
+            <div class="grid grid-cols-2 gap-2 md:gap-4">
+                <div class="flex flex-col items-center">
+                    <div id="left-hand" class="player-hand-container w-full"></div>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div id="right-hand" class="player-hand-container w-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rotate Device Overlay -->
+    <div id="rotate-device-overlay" class="fixed inset-0 bg-gray-900 z-50 items-center justify-center text-center">
+        <!-- SVG Icon and Text -->
+    </div>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        // --- FIREBASE SETUP ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAfxzfnXrLtgqBzDZxgI1EMxso8E6iEYf0",
+            authDomain: "whotwhotnigeria.firebaseapp.com",
+            databaseURL: "https://whotwhotnigeria-default-rtdb.firebaseio.com",
+            projectId: "whotwhotnigeria",
+            storageBucket: "whotwhotnigeria.firebasestorage.app",
+            messagingSenderId: "686057562811",
+            appId: "1:686057562811:web:ae26e37cfa2fc2fadd7f9e",
+            measurementId: "G-C2SGLN7788"
+        };
+        
+        let firebaseApp;
+        let database;
+        try {
+            if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+            } else {
+                console.warn("Firebase config is missing. Multiplayer will not work.");
+            }
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+        }
+
+        // --- DOM ELEMENTS ---
+        const mainMenu = document.getElementById('main-menu');
+        const singlePlayerSetup = document.getElementById('single-player-setup');
+        const multiplayerSetup = document.getElementById('multiplayer-setup');
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const gameContainer = document.getElementById('game-container');
+        const opponentsArea = document.getElementById('opponents-area');
+        const leftHandDiv = document.getElementById('left-hand');
+        const rightHandDiv = document.getElementById('right-hand');
+        
+        // --- GAME STATE (shared between modes) ---
+        let players = [];
+        let gameMode = null; // 'sp' or 'mp'
+        
+        // Multiplayer specific state
+        let gameId = null;
+        let localPlayerId = null;
+        let gameRef = null;
+        let gameUnsubscribe = null;
+
+        const SHAPES_SVG = {
+            circle: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="11"/></svg>`,
+            triangle: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2z"/></svg>`,
+            square: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v18H3V3z"/></svg>`,
+            cross: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3 H14 V10 H21 V14 H14 V21 H10 V14 H3 V10 H10z"/></svg>`,
+            star: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`
+        };
+        const ACTION_CARDS = [1, 2, 5, 8, 14, 20];
+
+        // --- UI NAVIGATION ---
+        document.getElementById('single-player-btn').addEventListener('click', () => {
+            mainMenu.classList.add('hidden');
+            singlePlayerSetup.classList.remove('hidden');
+            gameMode = 'sp';
+        });
+
+        document.getElementById('multiplayer-btn').addEventListener('click', () => {
+            if (!database) {
+                alert("Firebase is not configured. Multiplayer is disabled.");
+                return;
+            }
+            mainMenu.classList.add('hidden');
+            multiplayerSetup.classList.remove('hidden');
+            gameMode = 'mp';
+        });
+        
+        document.querySelectorAll('.back-to-main').forEach(btn => {
+            btn.addEventListener('click', () => {
+                singlePlayerSetup.classList.add('hidden');
+                multiplayerSetup.classList.add('hidden');
+                mainMenu.classList.remove('hidden');
+                gameMode = null;
+            });
+        });
+
+        // --- SINGLE PLAYER LOGIC ---
+        const sp_decrementBtn = document.getElementById('decrement-players');
+        const sp_incrementBtn = document.getElementById('increment-players');
+        const sp_playerCountDisplay = document.getElementById('player-count-display');
+        const sp_startGameBtn = document.getElementById('start-sp-game-btn');
+
+        sp_decrementBtn.addEventListener('click', () => {
+            let count = parseInt(sp_playerCountDisplay.textContent);
+            if (count > 1) sp_playerCountDisplay.textContent = count - 1;
+        });
+
+        sp_incrementBtn.addEventListener('click', () => {
+            let count = parseInt(sp_playerCountDisplay.textContent);
+            if (count < 5) sp_playerCountDisplay.textContent = count + 1;
+        });
+
+        sp_startGameBtn.addEventListener('click', () => {
+            const numBots = parseInt(sp_playerCountDisplay.textContent);
+            initializeSinglePlayerGame(numBots);
+        });
+
+        function initializeSinglePlayerGame(numBots) {
+            players = [];
+            players.push({ id: 'human', name: 'You', isHuman: true, regularHand: [], actionHand: [] });
+            const BOT_NAMES = ["Apex", "Bolt", "Cipher", "Dynamo", "Echo"];
+            for (let i = 0; i < numBots; i++) {
+                players.push({ id: `bot${i+1}`, name: BOT_NAMES[i], isHuman: false, hand: [] });
+            }
+            singlePlayerSetup.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            gameContainer.classList.add('flex');
+            // TODO: Start the actual single player game logic here
+            alert(`Starting Single Player game with ${numBots} bots.`);
+        }
+
+        // --- MULTIPLAYER LOGIC ---
+        const mp_playerNameInput = document.getElementById('player-name-input');
+        const mp_createGameBtn = document.getElementById('create-game-btn');
+        const mp_joinGameInput = document.getElementById('join-game-input');
+        const mp_joinGameBtn = document.getElementById('join-game-btn');
+        const mp_startGameBtn = document.getElementById('start-mp-game-btn');
+
+        mp_createGameBtn.addEventListener('click', createMultiplayerGame);
+        mp_joinGameBtn.addEventListener('click', joinMultiplayerGame);
+        mp_startGameBtn.addEventListener('click', startMultiplayerGame);
+
+        function getPlayerName() {
+            const name = mp_playerNameInput.value.trim();
+            if (!name) {
+                alert("Please enter your name.");
+                return null;
+            }
+            return name;
+        }
+
+        async function createMultiplayerGame() {
+            const playerName = getPlayerName();
+            if (!playerName) return;
+
+            localPlayerId = `player_${Date.now()}`;
+            gameId = Math.random().toString(36).substr(2, 6).toUpperCase();
+            gameRef = database.ref(`games/${gameId}`);
+
+            const initialGameState = {
+                status: 'lobby',
+                hostId: localPlayerId,
+                players: {
+                    [localPlayerId]: { name: playerName, isHost: true }
+                },
+            };
+
+            await gameRef.set(initialGameState);
+            listenToGameUpdates();
+            showLobby();
+        }
+
+        async function joinMultiplayerGame() {
+            const playerName = getPlayerName();
+            if (!playerName) return;
+            
+            const joinId = mp_joinGameInput.value.trim().toUpperCase();
+            if (!joinId) {
+                alert("Please enter a Game ID.");
+                return;
+            }
+
+            gameId = joinId;
+            gameRef = database.ref(`games/${gameId}`);
+            const snapshot = await gameRef.once('value');
+            
+            if (!snapshot.exists() || snapshot.val().status !== 'lobby') {
+                alert("Game not found or has already started.");
+                return;
+            }
+
+            localPlayerId = `player_${Date.now()}`;
+            await gameRef.child(`players/${localPlayerId}`).set({ name: playerName });
+            listenToGameUpdates();
+            showLobby();
+        }
+        
+        function showLobby() {
+            multiplayerSetup.classList.add('hidden');
+            lobbyScreen.classList.remove('hidden');
+            document.getElementById('game-id-display').textContent = gameId;
+            document.getElementById('game-id-display').onclick = () => {
+                navigator.clipboard.writeText(gameId).then(() => alert('Game ID copied to clipboard!'));
+            };
+        }
+
+        function listenToGameUpdates() {
+            if (gameUnsubscribe) gameUnsubscribe(); 
+            
+            gameUnsubscribe = gameRef.on('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    alert("The game has ended.");
+                    resetToMainMenu();
+                    return;
+                }
+                const gameState = snapshot.val();
+                
+                if (gameState.status === 'lobby') {
+                    updateLobbyPlayers(gameState.players);
+                    const isHost = gameState.hostId === localPlayerId;
+                    mp_startGameBtn.disabled = !isHost || Object.keys(gameState.players).length < 2;
+                }
+                
+                if (gameState.status === 'playing') {
+                    lobbyScreen.classList.add('hidden');
+                    gameContainer.classList.remove('hidden');
+                    gameContainer.classList.add('flex');
+                    renderMultiplayerGame(gameState);
+                }
+            });
+        }
+        
+        function updateLobbyPlayers(playersObj) {
+            const lobbyPlayersList = document.getElementById('lobby-players-list');
+            lobbyPlayersList.innerHTML = '';
+            for (const id in playersObj) {
+                const player = playersObj[id];
+                const playerEl = document.createElement('div');
+                playerEl.textContent = `${player.name} ${player.isHost ? '(Host)' : ''}`;
+                lobbyPlayersList.appendChild(playerEl);
+            }
+        }
+
+        async function startMultiplayerGame() {
+            const snapshot = await gameRef.once('value');
+            const gameState = snapshot.val();
+            const playerIds = Object.keys(gameState.players);
+            
+            // This is where the host sets up the game
+            let deck = createDeck();
+            shuffleDeck(deck);
+            
+            const hands = {};
+            playerIds.forEach(id => {
+                hands[id] = { regularHand: [], actionHand: [] };
+            });
+
+            for (let i = 0; i < 6; i++) {
+                for (const id of playerIds) {
+                    const card = deck.pop();
+                    if (ACTION_CARDS.includes(card.number)) {
+                        hands[id].actionHand.push(card);
+                    } else {
+                        hands[id].regularHand.push(card);
+                    }
+                }
+            }
+
+            let firstCardIndex = deck.findIndex(card => !ACTION_CARDS.includes(card.number));
+            if (firstCardIndex === -1) firstCardIndex = 0;
+            const firstCard = deck.splice(firstCardIndex, 1)[0];
+            
+            const updates = {
+                status: 'playing',
+                drawPile: deck,
+                discardPile: [firstCard],
+                currentPlayerIndex: 0,
+                playerOrder: playerIds,
+                hands: hands,
+                // other game state initializations
+            };
+            
+            await gameRef.update(updates);
+        }
+
+        function renderMultiplayerGame(gameState) {
+            // This function now drives the UI based on Firebase state
+            const { players, playerOrder, hands, drawPile, discardPile, currentPlayerIndex } = gameState;
+            const localPlayerHand = hands[localPlayerId];
+
+            // Render local player's hand
+            renderHand(localPlayerHand.regularHand, leftHandDiv, 'regular');
+            renderHand(localPlayerHand.actionHand, rightHandDiv, 'action');
+
+            // Render opponents
+            opponentsArea.innerHTML = '';
+            playerOrder.forEach((playerId, index) => {
+                if (playerId === localPlayerId) return;
+                const player = players[playerId];
+                const hand = hands[playerId];
+                const totalCards = hand.regularHand.length + hand.actionHand.length;
+                
+                const profileDiv = document.createElement('div');
+                profileDiv.className = 'opponent-profile';
+                if (index === currentPlayerIndex) {
+                    profileDiv.classList.add('active-turn');
+                }
+                profileDiv.innerHTML = `
+                    <div class="player-avatar" style="background-image: url('https://placehold.co/50x50/4a5568/ffffff?text=${player.name.charAt(0)}')"></div>
+                    <div class="text-base font-semibold">${player.name}</div>
+                    <div class="card-stack-container"></div>
+                `;
+                const handContainer = profileDiv.querySelector('.card-stack-container');
+                renderVisualStack(handContainer, totalCards);
+                opponentsArea.appendChild(profileDiv);
+            });
+            
+            // Render piles
+            renderVisualStack(document.getElementById('draw-pile'), drawPile ? drawPile.length : 0);
+            renderDiscardPile(discardPile || []);
+        }
+        
+        function resetToMainMenu() {
+            if (gameUnsubscribe) gameUnsubscribe();
+            gameContainer.classList.add('hidden');
+            lobbyScreen.classList.add('hidden');
+            multiplayerSetup.classList.add('hidden');
+            singlePlayerSetup.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+            gameId = null;
+            localPlayerId = null;
+            gameRef = null;
+        }
+
+        // --- SHARED GAME LOGIC & RENDERING ---
+        function createDeck() {
+            const deck = [];
+            const cardDistribution = {
+                circle:   [1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14],
+                triangle: [1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14],
+                square:   [1, 2, 3, 5, 7, 10, 11, 13, 14],
+                cross:    [1, 2, 3, 5, 7, 10, 11, 13, 14],
+                star:     [1, 2, 3, 4, 5, 7, 8]
+            };
+            for (const shape in cardDistribution) {
+                for (const number of cardDistribution[shape]) {
+                    deck.push({ shape, number });
+                }
+            }
+            for (let i = 0; i < 5; i++) {
+                deck.push({ shape: 'whot', number: 20 });
+            }
+            return deck;
+        }
+
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        function renderHand(handArray, containerDiv, handName) {
+            containerDiv.innerHTML = '';
+            if (!handArray) return;
+            const totalCards = handArray.length;
+            const overlap = 50;
+            const totalWidth = 120 + (totalCards > 1 ? (totalCards - 1) * overlap : 0);
+            
+            handArray.forEach((card, i) => {
+                const cardEl = createCardElement(card, true, i, handName);
+                const xOffset = (i * overlap) - (totalWidth / 2) + 60;
+                cardEl.style.transform = `translateX(${xOffset}px)`;
+                cardEl.style.zIndex = i;
+                containerDiv.appendChild(cardEl);
+            });
+        }
+        
+        function renderVisualStack(container, cardCount) {
+            container.innerHTML = '';
+            const maxVisibleCards = 20; 
+            const stackSize = Math.min(cardCount, maxVisibleCards);
+            if (cardCount > 0) {
+                for (let i = 0; i < stackSize; i++) {
+                    const cardEl = createCardElement(null, false);
+                    cardEl.style.transform = `translateY(${i * 2}px)`;
+                    cardEl.style.zIndex = i;
+                    container.appendChild(cardEl);
+                }
+            }
+        }
+
+        function renderDiscardPile(pile) {
+            const discardPileDiv = document.getElementById('discard-pile');
+            discardPileDiv.innerHTML = '';
+            if (pile.length > 0) {
+                const cardsToShow = pile.slice(-5);
+                cardsToShow.forEach((card, i) => {
+                    const cardEl = createCardElement(card, true);
+                    cardEl.style.position = 'absolute';
+                    cardEl.style.left = '50%';
+                    cardEl.style.transform = `translateX(-50%) translateY(${i*2}px)`;
+                    cardEl.style.zIndex = i;
+                    discardPileDiv.appendChild(cardEl);
+                });
+            }
+        }
+
+        function createCardElement(card, isFaceUp = true, cardIndex, handName) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'card';
+            if (!isFaceUp) {
+                cardDiv.classList.add('card-back');
+                cardDiv.innerHTML = `<div class="whot-text-back">Whot</div><div class="whot-text-back" style="transform: rotate(180deg);">Whot</div>`;
+                return cardDiv;
+            }
+            
+            const { shape, number } = card;
+            const shapeSVG = SHAPES_SVG[shape];
+            if (shape === 'whot') {
+                 cardDiv.innerHTML = `<div class="corner top-left"><span>20</span></div><div style="text-align:center; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);"><div class="whot-text">Whot</div><div class="whot-text" style="transform: rotate(180deg);">Whot</div></div><div class="corner bottom-right"><span>20</span></div>`;
+            } else {
+                cardDiv.innerHTML = `<div class="corner top-left"><span>${number}</span><div style="width:14px; height:14px;">${shapeSVG}</div></div><div class="card-symbol">${shapeSVG}</div><div class="corner bottom-right"><span>${number}</span><div style="width:14px; height:14px;">${shapeSVG}</div></div>`;
+            }
+
+            // Add event listeners for local player's cards
+            // This will need to be expanded to trigger Firebase updates
+            return cardDiv;
+        }
+        
+    </script>
+</body>
+</html>
