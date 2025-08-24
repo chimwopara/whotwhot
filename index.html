@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nigerian Whot Game</title>
+    <title>Nigerian Whot Game - Multiplayer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tinos:wght@700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
     <style>
         * {
             user-select: none;
             -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
         body {
             font-family: 'Poppins', sans-serif;
@@ -28,6 +30,18 @@
             color: #8C1C13;
             font-family: 'Tinos', serif;
             font-weight: 700;
+        }
+        .card.dragging {
+            opacity: 0.3;
+            transform: rotate(5deg) scale(0.9) !important;
+            z-index: 1000 !important;
+            pointer-events: none;
+        }
+
+        .drop-zone {
+            border: 2px dashed #4ade80 !important;
+            background-color: rgba(74, 222, 128, 0.1) !important;
+            border-radius: 8px !important;
         }
         .card-back {
             background-color: #8C1C13;
@@ -59,11 +73,23 @@
             font-size: 24px;
             line-height: 1;
         }
+        .corner-shape {
+            width: 14px;
+            height: 14px;
+        }
         .top-left { top: 10px; left: 10px; }
         .bottom-right { bottom: 10px; right: 10px; transform: rotate(180deg); }
+        .whot-card-center {
+            text-align: center;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
         .whot-text {
             font-family: 'Dancing Script', cursive;
             font-size: 38px;
+            line-height: 1;
         }
         .player-hand-container {
             display: flex;
@@ -72,14 +98,14 @@
             min-height: 220px;
             position: relative;
         }
-        .player-hand-container .card {
+        .player-hand-container .card, #right-hand .card {
             position: absolute;
             transition: transform 0.3s ease;
         }
-        .opponent-profile {
+        .computer-player-profile {
             position: relative;
             width: 140px;
-            min-height: 220px;
+            height: 220px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -88,11 +114,15 @@
             border-radius: 8px;
             transition: background-color 0.3s, box-shadow 0.3s;
         }
-        .active-turn {
+        .computer-player-profile.active-turn {
             background-color: #ca8a04;
             box-shadow: 0 0 15px #ca8a04;
         }
-        .player-avatar {
+        .computer-player-profile.eliminated {
+            opacity: 0.5;
+            background-color: #dc2626;
+        }
+        .bot-avatar {
             width: 50px;
             height: 50px;
             border-radius: 50%;
@@ -109,72 +139,303 @@
             position: absolute;
             top: 0;
             left: 0;
+            cursor: default;
         }
-        #rotate-device-overlay { display: none; }
+        .card-stack-container .card:hover {
+            transform: none;
+        }
+        #game-board {
+            perspective: 1000px;
+        }
+        #shape-modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .shape-option {
+            transition: transform 0.2s;
+        }
+        .shape-option:hover {
+            transform: scale(1.1);
+        }
+        .toast {
+            animation: fade-in-out 3s forwards;
+        }
+        @keyframes fade-in-out {
+            0% { opacity: 0; transform: translateY(20px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+        .drawing-card {
+            position: fixed;
+            z-index: 100;
+            transition: transform 0.4s ease-in-out, opacity 0.4s;
+        }
+        .push-button {
+            background-color: #ca8a04;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .push-button:hover {
+            background-color: #a16207;
+        }
+
+        #rotate-device-overlay {
+            display: none;
+        }
+
         @media (max-width: 768px) and (orientation: portrait) {
-            body > *:not(#rotate-device-overlay) { display: none !important; }
-            #rotate-device-overlay { display: flex; }
+            #game-container, #setup-screen, #main-menu {
+                display: none !important;
+            }
+            #rotate-device-overlay {
+                display: flex;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .card {
+                width: 90px;
+                height: 135px;
+            }
+            .corner {
+                font-size: 18px;
+            }
+            .whot-text {
+                font-size: 28px;
+            }
+            .card-symbol {
+                width: 50px;
+                height: 50px;
+            }
+            .player-hand-container {
+                min-height: 160px;
+            }
+            .computer-player-profile {
+                width: 110px;
+                height: 180px;
+            }
+            .bot-avatar {
+                width: 40px;
+                height: 40px;
+            }
+            .card-stack-container {
+                width: 90px;
+                height: 135px;
+            }
+            #game-board {
+                gap: 1rem;
+            }
+            #discard-pile {
+                width: 220px !important;
+                height: 135px !important;
+            }
+        }
+
+        .menu-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-size: 1.25rem;
+            font-weight: bold;
+            padding: 1rem 2rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .menu-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .secondary-button {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .status-connected {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .status-connecting {
+            background-color: #f59e0b;
+            color: white;
+        }
+
+        .status-disconnected {
+            background-color: #ef4444;
+            color: white;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4 overflow-hidden">
+<body class="bg-gray-900 text-white flex flex-col items-center min-h-screen p-4 overflow-hidden">
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status status-disconnected hidden">
+        Disconnected
+    </div>
 
     <!-- Main Menu -->
-    <div id="main-menu" class="text-center">
-        <h1 class="text-6xl font-bold mb-4" style="font-family: 'Dancing Script', cursive;">Nigerian Whot</h1>
-        <div class="space-y-4">
-            <button id="single-player-btn" class="w-64 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Single Player</button>
-            <button id="multiplayer-btn" class="w-64 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Multiplayer</button>
-        </div>
-    </div>
-
-    <!-- Single Player Setup -->
-    <div id="single-player-setup" class="hidden bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
-        <h2 class="text-3xl font-bold mb-6">Single Player Setup</h2>
-        <div class="mb-6">
-            <label for="player-count" class="block mb-2 text-lg font-medium">Select Number of Opponents</label>
-            <div class="flex items-center justify-center gap-4">
-                <button id="decrement-players" class="px-4 py-2 bg-amber-600 rounded-md text-xl font-bold">-</button>
-                <span id="player-count-display" class="text-3xl font-bold w-16 text-center">1</span>
-                <button id="increment-players" class="px-4 py-2 bg-amber-600 rounded-md text-xl font-bold">+</button>
+    <div id="main-menu" class="fixed inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center z-50">
+        <div class="bg-black/30 p-12 rounded-2xl shadow-2xl text-center backdrop-blur-sm">
+            <h1 class="text-6xl font-bold mb-4" style="font-family: 'Dancing Script', cursive;">Nigerian Whot</h1>
+            <p class="text-xl mb-8 text-gray-300">Choose your game mode</p>
+            
+            <div class="flex flex-col gap-4 w-80">
+                <button id="single-player-btn" class="menu-button">
+                    🎮 Single Player
+                </button>
+                <button id="multiplayer-btn" class="menu-button secondary-button">
+                    🌐 Multiplayer
+                </button>
+                <button id="join-game-btn" class="menu-button">
+                    🔗 Join Game
+                </button>
             </div>
         </div>
-        <button id="start-sp-game-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Start Game</button>
-         <button class="back-to-main w-full mt-4 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Back</button>
     </div>
 
-    <!-- Multiplayer Setup -->
-    <div id="multiplayer-setup" class="hidden bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
-        <h2 class="text-3xl font-bold mb-6">Multiplayer</h2>
-        <div class="space-y-4">
-            <input type="text" id="player-name-input" placeholder="Enter your name" class="w-full p-3 bg-gray-700 rounded-lg text-white text-center">
-            <button id="create-game-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Create Game</button>
-            <div class="flex items-center gap-2">
-                <input type="text" id="join-game-input" placeholder="Enter Game ID" class="w-full p-3 bg-gray-700 rounded-lg text-white text-center">
-                <button id="join-game-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors">Join</button>
+    <!-- Game Mode Selection -->
+    <div id="game-mode-selection" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
+            <h2 class="text-3xl font-bold mb-6">Select Game Mode</h2>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-4">Elimination Style</h3>
+                <div class="flex flex-col gap-3">
+                    <label class="flex items-center text-left">
+                        <input type="radio" name="gameMode" value="cardCount" class="mr-3" checked>
+                        <div>
+                            <div class="font-medium">Card Count Elimination</div>
+                            <div class="text-sm text-gray-400">When someone finishes, highest remaining card count gets eliminated</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center text-left">
+                        <input type="radio" name="gameMode" value="lastStanding" class="mr-3">
+                        <div>
+                            <div class="font-medium">Last Standing Elimination</div>
+                            <div class="text-sm text-gray-400">Last player remaining gets eliminated, continue until one winner</div>
+                        </div>
+                    </label>
+                </div>
             </div>
-             <button class="back-to-main w-full mt-4 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Back</button>
+
+            <div id="single-player-options" class="mb-6 hidden">
+                <label for="bot-count" class="block mb-2 text-lg font-medium">Number of Opponents</label>
+                <div class="flex items-center justify-center gap-4">
+                    <button id="decrement-bots" class="px-4 py-2 bg-amber-600 rounded-md text-xl font-bold">-</button>
+                    <span id="bot-count-display" class="text-3xl font-bold w-16 text-center">1</span>
+                    <button id="increment-bots" class="px-4 py-2 bg-amber-600 rounded-md text-xl font-bold">+</button>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="back-to-menu" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Back
+                </button>
+                <button id="start-selected-mode" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Start Game
+                </button>
+            </div>
         </div>
     </div>
-    
-    <!-- Lobby Screen -->
-    <div id="lobby-screen" class="hidden bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-lg">
-        <h2 class="text-3xl font-bold mb-2">Lobby</h2>
-        <div class="mb-4">
-            <p class="text-gray-400">Share this Game ID with your friends:</p>
-            <p id="game-id-display" class="text-2xl font-mono bg-gray-700 p-2 rounded mt-2 cursor-pointer"></p>
+
+    <!-- Multiplayer Room Screen -->
+    <div id="multiplayer-screen" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
+            <h2 class="text-3xl font-bold mb-6">Multiplayer Lobby</h2>
+            
+            <div id="room-creation" class="mb-6">
+                <div class="mb-4">
+                    <label class="block mb-2 text-lg font-medium">Your Name</label>
+                    <input type="text" id="player-name" class="w-full px-4 py-2 bg-gray-700 rounded-lg text-white" placeholder="Enter your name" maxlength="15">
+                </div>
+                <button id="create-room-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mb-3">
+                    Create Room
+                </button>
+            </div>
+
+            <div id="room-info" class="hidden mb-6">
+                <div class="bg-gray-700 p-4 rounded-lg mb-4">
+                    <div class="text-lg font-bold">Room Code</div>
+                    <div id="room-code" class="text-3xl font-mono text-green-400"></div>
+                    <div class="text-sm text-gray-400 mt-2">Share this code with friends</div>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="text-lg font-semibold mb-2">Players in Room</div>
+                    <div id="player-list" class="text-left"></div>
+                </div>
+                
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-3">Game Settings</h3>
+                    <div class="text-left space-y-2">
+                        <label class="flex items-center">
+                            <input type="radio" name="mpGameMode" value="cardCount" class="mr-2" checked>
+                            <span>Card Count Elimination</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="mpGameMode" value="lastStanding" class="mr-2">
+                            <span>Last Standing Elimination</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <button id="start-multiplayer-game" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Start Game
+                </button>
+            </div>
+            
+            <button id="back-to-menu-from-mp" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                Back to Menu
+            </button>
         </div>
-        <h3 class="text-xl font-bold mb-4">Players:</h3>
-        <div id="lobby-players-list" class="space-y-2 text-left mb-6"></div>
-        <button id="start-mp-game-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-xl transition-colors disabled:bg-gray-500" disabled>Start Game</button>
     </div>
 
+    <!-- Join Game Screen -->
+    <div id="join-game-screen" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
+            <h2 class="text-3xl font-bold mb-6">Join Game</h2>
+            
+            <div class="mb-6">
+                <label class="block mb-2 text-lg font-medium">Your Name</label>
+                <input type="text" id="join-player-name" class="w-full px-4 py-2 bg-gray-700 rounded-lg text-white mb-4" placeholder="Enter your name" maxlength="15">
+                
+                <label class="block mb-2 text-lg font-medium">Room Code</label>
+                <input type="text" id="room-code-input" class="w-full px-4 py-2 bg-gray-700 rounded-lg text-white text-center text-2xl font-mono" placeholder="000000" maxlength="6">
+            </div>
+            
+            <div class="flex gap-3">
+                <button id="back-to-menu-from-join" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Back
+                </button>
+                <button id="join-room-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Join Room
+                </button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Game Container -->
-    <div id="game-container" class="w-full max-w-screen-2xl mx-auto flex-col items-center justify-between flex-grow hidden">
-        <!-- Opponents Area -->
+    <div id="game-container" class="w-full max-w-screen-2xl mx-auto flex flex-col items-center justify-between flex-grow hidden">
+        <!-- Computer's Area -->
         <div class="w-full">
-            <div id="opponents-area" class="flex flex-wrap justify-center items-start gap-4 md:gap-12"></div>
+            <div id="computer-players-area" class="flex flex-wrap justify-center items-start gap-4 md:gap-12"></div>
         </div>
 
         <!-- Game Board -->
@@ -187,27 +448,73 @@
         <!-- Player's Area -->
         <div class="w-full p-2 md:p-4 bg-gray-800/50 rounded-xl">
             <div class="grid grid-cols-2 gap-2 md:gap-4">
+                <!-- Main Hand -->
                 <div class="flex flex-col items-center">
                     <div id="left-hand" class="player-hand-container w-full"></div>
+                    <div id="left-push-buttons" class="flex gap-2 mt-2"></div>
                 </div>
+                <!-- Action Hand -->
                 <div class="flex flex-col items-center">
                     <div id="right-hand" class="player-hand-container w-full"></div>
+                     <div id="right-push-buttons" class="flex gap-2 mt-2"></div>
                 </div>
             </div>
+        </div>
+
+        <!-- Game Info Bar -->
+        <div id="game-info-bar" class="fixed top-4 left-4 bg-black/70 p-3 rounded-lg text-sm">
+            <div>Round: <span id="round-counter">1</span></div>
+            <div id="players-remaining"></div>
+            <div id="game-mode-display"></div>
         </div>
     </div>
 
     <!-- Rotate Device Overlay -->
     <div id="rotate-device-overlay" class="fixed inset-0 bg-gray-900 z-50 items-center justify-center text-center">
-        <!-- SVG Icon and Text -->
+        <div>
+            <svg class="w-24 h-24 mx-auto text-white mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2zM5 12h.01M19 12h.01M21 8v.01M21 16v.01M3 8v.01M3 16v.01"></path></svg>
+            <h2 class="text-2xl font-bold">Please Rotate Your Device</h2>
+            <p class="text-gray-400 mt-2">This game is best played in landscape mode.</p>
+        </div>
     </div>
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-    <script>
-        // --- FIREBASE SETUP ---
+    <!-- Shape Selection Modal -->
+    <div id="shape-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50 opacity-0">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center">
+            <h2 class="text-2xl font-bold mb-6">Choose a Shape</h2>
+            <div id="shape-options" class="flex gap-4">
+                <!-- Options will be injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
+
+    <!-- Winner Modal -->
+    <div id="winner-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center">
+            <h2 id="winner-text" class="text-4xl font-bold mb-6 text-yellow-400">🏆 Winner! 🏆</h2>
+            <p id="winner-description" class="text-xl mb-6"></p>
+            <div class="flex gap-4">
+                <button id="play-again-btn" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-bold transition-colors">
+                    Play Again
+                </button>
+                <button id="back-to-main-menu" class="bg-gray-600 hover:bg-gray-700 px-6 py-3 rounded-lg font-bold transition-colors">
+                    Main Menu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase and Game Scripts -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+        import { getDatabase, ref, push, set, onValue, off, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
+
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAfxzfnXrLtgqBzDZxgI1EMxso8E6iEYf0",
             authDomain: "whotwhotnigeria.firebaseapp.com",
@@ -218,40 +525,67 @@
             appId: "1:686057562811:web:ae26e37cfa2fc2fadd7f9e",
             measurementId: "G-C2SGLN7788"
         };
-        
-        let firebaseApp;
-        let database;
-        try {
-            if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
-                firebaseApp = firebase.initializeApp(firebaseConfig);
-                database = firebase.database();
-            } else {
-                console.warn("Firebase config is missing. Multiplayer will not work.");
-            }
-        } catch (e) {
-            console.error("Firebase initialization failed:", e);
-        }
 
-        // --- DOM ELEMENTS ---
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const analytics = getAnalytics(app);
+
+        // Make Firebase functions globally available
+        window.firebase = {
+            database,
+            ref,
+            push,
+            set,
+            onValue,
+            off,
+            remove,
+            onDisconnect
+        };
+    </script>
+
+    <script>
+        // DOM Elements
         const mainMenu = document.getElementById('main-menu');
-        const singlePlayerSetup = document.getElementById('single-player-setup');
-        const multiplayerSetup = document.getElementById('multiplayer-setup');
-        const lobbyScreen = document.getElementById('lobby-screen');
+        const gameModeSelection = document.getElementById('game-mode-selection');
+        const multiplayerScreen = document.getElementById('multiplayer-screen');
+        const joinGameScreen = document.getElementById('join-game-screen');
         const gameContainer = document.getElementById('game-container');
-        const opponentsArea = document.getElementById('opponents-area');
-        const leftHandDiv = document.getElementById('left-hand');
-        const rightHandDiv = document.getElementById('right-hand');
+        const connectionStatus = document.getElementById('connection-status');
         
-        // --- GAME STATE (shared between modes) ---
-        let players = [];
-        let gameMode = null; // 'sp' or 'mp'
+        // Game state variables
+        let gameMode = 'single'; // 'single' or 'multiplayer'
+        let eliminationStyle = 'cardCount'; // 'cardCount' or 'lastStanding'
+        let isMultiplayer = false;
+        let currentRoom = null;
+        let playerId = null;
+        let playerName = '';
+        let roomCode = null;
+        let gameStarted = false;
         
-        // Multiplayer specific state
-        let gameId = null;
-        let localPlayerId = null;
-        let gameRef = null;
-        let gameUnsubscribe = null;
+        // Multiplayer state
+        let multiplayerGameState = null;
+        let isHost = false;
+        let gameRound = 1;
+        let eliminatedPlayers = new Set();
+        let allPlayers = [];
 
+        // Game logic variables (same as before)
+        let deck = [];
+        let players = [];
+        let discardPile = [];
+        let drawPile = [];
+        let currentPlayerIndex = 0;
+        let activeStack = null; 
+        let whotRequest = null; 
+        let holdOnActive = false;
+        let turnsToSkip = 0;
+        let draggedCardData = null;
+        let isDragging = false;
+        let generalMarketState = { active: false, initiator: null, respondedMask: [], playersWhoPlayed: [] };
+
+        const ACTION_CARDS = [1, 2, 5, 8, 14, 20];
+        
         const SHAPES_SVG = {
             circle: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="11"/></svg>`,
             triangle: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2z"/></svg>`,
@@ -259,273 +593,424 @@
             cross: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3 H14 V10 H21 V14 H14 V21 H10 V14 H3 V10 H10z"/></svg>`,
             star: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`
         };
-        const ACTION_CARDS = [1, 2, 5, 8, 14, 20];
 
-        // --- UI NAVIGATION ---
+        const BOT_NAMES = ["Apex", "Bolt", "Cipher", "Dynamo", "Echo", "Fusion", "Glitch", "Helix", "Ion", "Jolt", "Kortex", "Logic"];
+
+        // DOM elements for the game
+        const leftHandDiv = document.getElementById('left-hand');
+        const rightHandDiv = document.getElementById('right-hand');
+        const computerPlayersArea = document.getElementById('computer-players-area');
+        const discardPileDiv = document.getElementById('discard-pile');
+        const drawPileDiv = document.getElementById('draw-pile');
+        const gameStatusDiv = document.getElementById('game-status');
+        const shapeModal = document.getElementById('shape-modal');
+        const shapeOptionsDiv = document.getElementById('shape-options');
+        const leftPushButtonsDiv = document.getElementById('left-push-buttons');
+        const rightPushButtonsDiv = document.getElementById('right-push-buttons');
+
+        // === MENU NAVIGATION ===
+
         document.getElementById('single-player-btn').addEventListener('click', () => {
+            gameMode = 'single';
+            isMultiplayer = false;
+            document.getElementById('single-player-options').classList.remove('hidden');
             mainMenu.classList.add('hidden');
-            singlePlayerSetup.classList.remove('hidden');
-            gameMode = 'sp';
+            gameModeSelection.classList.remove('hidden');
         });
 
         document.getElementById('multiplayer-btn').addEventListener('click', () => {
-            if (!database) {
-                alert("Firebase is not configured. Multiplayer is disabled.");
-                return;
-            }
+            gameMode = 'multiplayer';
+            isMultiplayer = true;
             mainMenu.classList.add('hidden');
-            multiplayerSetup.classList.remove('hidden');
-            gameMode = 'mp';
-        });
-        
-        document.querySelectorAll('.back-to-main').forEach(btn => {
-            btn.addEventListener('click', () => {
-                singlePlayerSetup.classList.add('hidden');
-                multiplayerSetup.classList.add('hidden');
-                mainMenu.classList.remove('hidden');
-                gameMode = null;
-            });
+            gameModeSelection.classList.remove('hidden');
         });
 
-        // --- SINGLE PLAYER LOGIC ---
-        const sp_decrementBtn = document.getElementById('decrement-players');
-        const sp_incrementBtn = document.getElementById('increment-players');
-        const sp_playerCountDisplay = document.getElementById('player-count-display');
-        const sp_startGameBtn = document.getElementById('start-sp-game-btn');
-
-        sp_decrementBtn.addEventListener('click', () => {
-            let count = parseInt(sp_playerCountDisplay.textContent);
-            if (count > 1) sp_playerCountDisplay.textContent = count - 1;
+        document.getElementById('join-game-btn').addEventListener('click', () => {
+            mainMenu.classList.add('hidden');
+            joinGameScreen.classList.remove('hidden');
         });
 
-        sp_incrementBtn.addEventListener('click', () => {
-            let count = parseInt(sp_playerCountDisplay.textContent);
-            if (count < 5) sp_playerCountDisplay.textContent = count + 1;
+        document.getElementById('back-to-menu').addEventListener('click', () => {
+            gameModeSelection.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
         });
 
-        sp_startGameBtn.addEventListener('click', () => {
-            const numBots = parseInt(sp_playerCountDisplay.textContent);
-            initializeSinglePlayerGame(numBots);
+        document.getElementById('back-to-menu-from-mp').addEventListener('click', () => {
+            leaveRoom();
+            multiplayerScreen.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
         });
 
-        function initializeSinglePlayerGame(numBots) {
-            players = [];
-            players.push({ id: 'human', name: 'You', isHuman: true, regularHand: [], actionHand: [] });
-            const BOT_NAMES = ["Apex", "Bolt", "Cipher", "Dynamo", "Echo"];
-            for (let i = 0; i < numBots; i++) {
-                players.push({ id: `bot${i+1}`, name: BOT_NAMES[i], isHuman: false, hand: [] });
+        document.getElementById('back-to-menu-from-join').addEventListener('click', () => {
+            joinGameScreen.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+        });
+
+        document.getElementById('back-to-main-menu').addEventListener('click', () => {
+            resetToMainMenu();
+        });
+
+        // === GAME MODE SELECTION ===
+
+        document.getElementById('decrement-bots').addEventListener('click', () => {
+            let count = parseInt(document.getElementById('bot-count-display').textContent);
+            if (count > 1) {
+                document.getElementById('bot-count-display').textContent = count - 1;
             }
-            singlePlayerSetup.classList.add('hidden');
-            gameContainer.classList.remove('hidden');
-            gameContainer.classList.add('flex');
-            // TODO: Start the actual single player game logic here
-            alert(`Starting Single Player game with ${numBots} bots.`);
-        }
+        });
 
-        // --- MULTIPLAYER LOGIC ---
-        const mp_playerNameInput = document.getElementById('player-name-input');
-        const mp_createGameBtn = document.getElementById('create-game-btn');
-        const mp_joinGameInput = document.getElementById('join-game-input');
-        const mp_joinGameBtn = document.getElementById('join-game-btn');
-        const mp_startGameBtn = document.getElementById('start-mp-game-btn');
-
-        mp_createGameBtn.addEventListener('click', createMultiplayerGame);
-        mp_joinGameBtn.addEventListener('click', joinMultiplayerGame);
-        mp_startGameBtn.addEventListener('click', startMultiplayerGame);
-
-        function getPlayerName() {
-            const name = mp_playerNameInput.value.trim();
-            if (!name) {
-                alert("Please enter your name.");
-                return null;
+        document.getElementById('increment-bots').addEventListener('click', () => {
+            let count = parseInt(document.getElementById('bot-count-display').textContent);
+            if (count < 5) {
+                document.getElementById('bot-count-display').textContent = count + 1;
             }
-            return name;
-        }
+        });
 
-        async function createMultiplayerGame() {
-            const playerName = getPlayerName();
-            if (!playerName) return;
-
-            localPlayerId = `player_${Date.now()}`;
-            gameId = Math.random().toString(36).substr(2, 6).toUpperCase();
-            gameRef = database.ref(`games/${gameId}`);
-
-            const initialGameState = {
-                status: 'lobby',
-                hostId: localPlayerId,
-                players: {
-                    [localPlayerId]: { name: playerName, isHost: true }
-                },
-            };
-
-            await gameRef.set(initialGameState);
-            listenToGameUpdates();
-            showLobby();
-        }
-
-        async function joinMultiplayerGame() {
-            const playerName = getPlayerName();
-            if (!playerName) return;
+        document.getElementById('start-selected-mode').addEventListener('click', () => {
+            eliminationStyle = document.querySelector('input[name="gameMode"]:checked').value;
             
-            const joinId = mp_joinGameInput.value.trim().toUpperCase();
-            if (!joinId) {
-                alert("Please enter a Game ID.");
+            if (gameMode === 'single') {
+                const botCount = parseInt(document.getElementById('bot-count-display').textContent);
+                initializeSinglePlayerGame(botCount);
+            } else {
+                eliminationStyle = document.querySelector('input[name="gameMode"]:checked').value;
+                gameModeSelection.classList.add('hidden');
+                multiplayerScreen.classList.remove('hidden');
+            }
+        });
+
+        // === MULTIPLAYER FUNCTIONS ===
+
+        function generateRoomCode() {
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
+
+        function generatePlayerId() {
+            return 'player_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        document.getElementById('create-room-btn').addEventListener('click', createRoom);
+        document.getElementById('join-room-btn').addEventListener('click', joinRoom);
+        document.getElementById('start-multiplayer-game').addEventListener('click', startMultiplayerGame);
+
+        async function createRoom() {
+            playerName = document.getElementById('player-name').value.trim();
+            if (!playerName) {
+                showToast('Please enter your name', 'error');
                 return;
             }
 
-            gameId = joinId;
-            gameRef = database.ref(`games/${gameId}`);
-            const snapshot = await gameRef.once('value');
+            try {
+                roomCode = generateRoomCode();
+                playerId = generatePlayerId();
+                isHost = true;
+                
+                const roomRef = window.firebase.ref(window.firebase.database, `rooms/${roomCode}`);
+                const playerRef = window.firebase.ref(window.firebase.database, `rooms/${roomCode}/players/${playerId}`);
+                
+                await window.firebase.set(roomRef, {
+                    host: playerId,
+                    gameStarted: false,
+                    gameMode: eliminationStyle,
+                    created: Date.now()
+                });
+
+                await window.firebase.set(playerRef, {
+                    name: playerName,
+                    isHost: true,
+                    joined: Date.now(),
+                    online: true
+                });
+
+                // Setup disconnect handler
+                const onDisconnectRef = window.firebase.onDisconnect(playerRef);
+                onDisconnectRef.set(null);
+
+                // Listen for room changes
+                setupRoomListener();
+                
+                document.getElementById('room-creation').classList.add('hidden');
+                document.getElementById('room-info').classList.remove('hidden');
+                document.getElementById('room-code').textContent = roomCode;
+                
+                updateConnectionStatus('connected');
+                showToast('Room created successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error creating room:', error);
+                showToast('Failed to create room', 'error');
+            }
+        }
+
+        async function joinRoom() {
+            playerName = document.getElementById('join-player-name').value.trim();
+            const inputRoomCode = document.getElementById('room-code-input').value.trim();
             
-            if (!snapshot.exists() || snapshot.val().status !== 'lobby') {
-                alert("Game not found or has already started.");
+            if (!playerName || !inputRoomCode || inputRoomCode.length !== 6) {
+                showToast('Please enter your name and a valid room code', 'error');
                 return;
             }
 
-            localPlayerId = `player_${Date.now()}`;
-            await gameRef.child(`players/${localPlayerId}`).set({ name: playerName });
-            listenToGameUpdates();
-            showLobby();
-        }
-        
-        function showLobby() {
-            multiplayerSetup.classList.add('hidden');
-            lobbyScreen.classList.remove('hidden');
-            document.getElementById('game-id-display').textContent = gameId;
-            document.getElementById('game-id-display').onclick = () => {
-                navigator.clipboard.writeText(gameId).then(() => alert('Game ID copied to clipboard!'));
-            };
-        }
+            try {
+                roomCode = inputRoomCode;
+                playerId = generatePlayerId();
+                isHost = false;
 
-        function listenToGameUpdates() {
-            if (gameUnsubscribe) gameUnsubscribe(); 
-            
-            gameUnsubscribe = gameRef.on('value', (snapshot) => {
+                // Check if room exists
+                const roomRef = window.firebase.ref(window.firebase.database, `rooms/${roomCode}`);
+                const snapshot = await new Promise((resolve, reject) => {
+                    window.firebase.onValue(roomRef, resolve, reject, { onlyOnce: true });
+                });
+
                 if (!snapshot.exists()) {
-                    alert("The game has ended.");
-                    resetToMainMenu();
+                    showToast('Room not found', 'error');
                     return;
                 }
-                const gameState = snapshot.val();
-                
-                if (gameState.status === 'lobby') {
-                    updateLobbyPlayers(gameState.players);
-                    const isHost = gameState.hostId === localPlayerId;
-                    mp_startGameBtn.disabled = !isHost || Object.keys(gameState.players).length < 2;
+
+                const roomData = snapshot.val();
+                if (roomData.gameStarted) {
+                    showToast('Game already in progress', 'error');
+                    return;
                 }
+
+                // Join the room
+                const playerRef = window.firebase.ref(window.firebase.database, `rooms/${roomCode}/players/${playerId}`);
+                await window.firebase.set(playerRef, {
+                    name: playerName,
+                    isHost: false,
+                    joined: Date.now(),
+                    online: true
+                });
+
+                // Setup disconnect handler
+                const onDisconnectRef = window.firebase.onDisconnect(playerRef);
+                onDisconnectRef.set(null);
+
+                // Setup room listener
+                setupRoomListener();
                 
-                if (gameState.status === 'playing') {
-                    lobbyScreen.classList.add('hidden');
-                    gameContainer.classList.remove('hidden');
-                    gameContainer.classList.add('flex');
-                    renderMultiplayerGame(gameState);
+                joinGameScreen.classList.add('hidden');
+                multiplayerScreen.classList.remove('hidden');
+                document.getElementById('room-creation').classList.add('hidden');
+                document.getElementById('room-info').classList.remove('hidden');
+                document.getElementById('room-code').textContent = roomCode;
+                
+                // Set game mode display
+                eliminationStyle = roomData.gameMode || 'cardCount';
+                const modeRadio = document.querySelector(`input[name="mpGameMode"][value="${eliminationStyle}"]`);
+                if (modeRadio) modeRadio.checked = true;
+                
+                updateConnectionStatus('connected');
+                showToast('Joined room successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error joining room:', error);
+                showToast('Failed to join room', 'error');
+            }
+        }
+
+        function setupRoomListener() {
+            const roomRef = window.firebase.ref(window.firebase.database, `rooms/${roomCode}`);
+            currentRoom = roomRef;
+            
+            window.firebase.onValue(roomRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const roomData = snapshot.val();
+                    updatePlayerList(roomData.players || {});
+                    
+                    // Update game mode if host changes it
+                    if (roomData.gameMode) {
+                        eliminationStyle = roomData.gameMode;
+                        const modeRadio = document.querySelector(`input[name="mpGameMode"][value="${eliminationStyle}"]`);
+                        if (modeRadio) modeRadio.checked = true;
+                    }
+                    
+                    // Check if game started
+                    if (roomData.gameStarted && !gameStarted) {
+                        gameStarted = true;
+                        initializeMultiplayerGame(roomData.players);
+                    }
+                    
+                    // Update game state if in progress
+                    if (roomData.gameState && gameStarted) {
+                        updateGameStateFromServer(roomData.gameState);
+                    }
                 }
             });
         }
-        
-        function updateLobbyPlayers(playersObj) {
-            const lobbyPlayersList = document.getElementById('lobby-players-list');
-            lobbyPlayersList.innerHTML = '';
-            for (const id in playersObj) {
-                const player = playersObj[id];
-                const playerEl = document.createElement('div');
-                playerEl.textContent = `${player.name} ${player.isHost ? '(Host)' : ''}`;
-                lobbyPlayersList.appendChild(playerEl);
+
+        function updatePlayerList(players) {
+            const playerListDiv = document.getElementById('player-list');
+            playerListDiv.innerHTML = '';
+            
+            allPlayers = Object.entries(players || {}).map(([id, data]) => ({
+                id,
+                ...data
+            }));
+
+            allPlayers.forEach((player, index) => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = `flex items-center justify-between p-2 bg-gray-700 rounded mb-2 ${player.online ? '' : 'opacity-50'}`;
+                playerDiv.innerHTML = `
+                    <span>${player.name} ${player.isHost ? '👑' : ''}</span>
+                    <span class="text-sm text-gray-400">${player.online ? '🟢' : '🔴'}</span>
+                `;
+                playerListDiv.appendChild(playerDiv);
+            });
+
+            // Enable start button only for host with at least 2 players
+            const startBtn = document.getElementById('start-multiplayer-game');
+            if (isHost) {
+                startBtn.disabled = allPlayers.length < 2;
+                // Enable game mode selection only for host
+                document.querySelectorAll('input[name="mpGameMode"]').forEach(radio => {
+                    radio.disabled = false;
+                    radio.addEventListener('change', updateGameModeInFirebase);
+                });
+            } else {
+                startBtn.disabled = true;
+                // Disable game mode selection for non-hosts
+                document.querySelectorAll('input[name="mpGameMode"]').forEach(radio => {
+                    radio.disabled = true;
+                });
+            }
+        }
+
+        async function updateGameModeInFirebase() {
+            if (!isHost || !roomCode) return;
+            
+            const newMode = document.querySelector('input[name="mpGameMode"]:checked').value;
+            eliminationStyle = newMode;
+            
+            try {
+                await window.firebase.set(
+                    window.firebase.ref(window.firebase.database, `rooms/${roomCode}/gameMode`),
+                    newMode
+                );
+            } catch (error) {
+                console.error('Error updating game mode:', error);
             }
         }
 
         async function startMultiplayerGame() {
-            const snapshot = await gameRef.once('value');
-            const gameState = snapshot.val();
-            const playerIds = Object.keys(gameState.players);
+            if (!isHost) return;
             
-            // This is where the host sets up the game
-            let deck = createDeck();
-            shuffleDeck(deck);
-            
-            const hands = {};
-            playerIds.forEach(id => {
-                hands[id] = { regularHand: [], actionHand: [] };
-            });
-
-            for (let i = 0; i < 6; i++) {
-                for (const id of playerIds) {
-                    const card = deck.pop();
-                    if (ACTION_CARDS.includes(card.number)) {
-                        hands[id].actionHand.push(card);
-                    } else {
-                        hands[id].regularHand.push(card);
-                    }
-                }
+            try {
+                await window.firebase.set(
+                    window.firebase.ref(window.firebase.database, `rooms/${roomCode}/gameStarted`),
+                    true
+                );
+            } catch (error) {
+                console.error('Error starting game:', error);
+                showToast('Failed to start game', 'error');
             }
-
-            let firstCardIndex = deck.findIndex(card => !ACTION_CARDS.includes(card.number));
-            if (firstCardIndex === -1) firstCardIndex = 0;
-            const firstCard = deck.splice(firstCardIndex, 1)[0];
-            
-            const updates = {
-                status: 'playing',
-                drawPile: deck,
-                discardPile: [firstCard],
-                currentPlayerIndex: 0,
-                playerOrder: playerIds,
-                hands: hands,
-                // other game state initializations
-            };
-            
-            await gameRef.update(updates);
         }
 
-        function renderMultiplayerGame(gameState) {
-            // This function now drives the UI based on Firebase state
-            const { players, playerOrder, hands, drawPile, discardPile, currentPlayerIndex } = gameState;
-            const localPlayerHand = hands[localPlayerId];
+        function leaveRoom() {
+            if (currentRoom) {
+                window.firebase.off(currentRoom);
+                currentRoom = null;
+            }
+            
+            if (roomCode && playerId) {
+                const playerRef = window.firebase.ref(window.firebase.database, `rooms/${roomCode}/players/${playerId}`);
+                window.firebase.remove(playerRef);
+            }
+            
+            roomCode = null;
+            playerId = null;
+            isHost = false;
+            gameStarted = false;
+            updateConnectionStatus('disconnected');
+        }
 
-            // Render local player's hand
-            renderHand(localPlayerHand.regularHand, leftHandDiv, 'regular');
-            renderHand(localPlayerHand.actionHand, rightHandDiv, 'action');
+        function updateConnectionStatus(status) {
+            connectionStatus.classList.remove('hidden', 'status-connected', 'status-connecting', 'status-disconnected');
+            
+            switch(status) {
+                case 'connected':
+                    connectionStatus.classList.add('status-connected');
+                    connectionStatus.textContent = 'Connected';
+                    break;
+                case 'connecting':
+                    connectionStatus.classList.add('status-connecting');
+                    connectionStatus.textContent = 'Connecting...';
+                    break;
+                case 'disconnected':
+                    connectionStatus.classList.add('status-disconnected');
+                    connectionStatus.textContent = 'Disconnected';
+                    connectionStatus.classList.add('hidden');
+                    break;
+            }
+        }
 
-            // Render opponents
-            opponentsArea.innerHTML = '';
-            playerOrder.forEach((playerId, index) => {
-                if (playerId === localPlayerId) return;
-                const player = players[playerId];
-                const hand = hands[playerId];
-                const totalCards = hand.regularHand.length + hand.actionHand.length;
-                
-                const profileDiv = document.createElement('div');
-                profileDiv.className = 'opponent-profile';
-                if (index === currentPlayerIndex) {
-                    profileDiv.classList.add('active-turn');
+        // === GAME INITIALIZATION ===
+
+        function initializeSinglePlayerGame(numBots) {
+            isMultiplayer = false;
+            players = [];
+            eliminatedPlayers.clear();
+            
+            players.push({ id: 'human', name: playerName || 'You', isHuman: true, regularHand: [], actionHand: [], eliminated: false });
+            for (let i = 0; i < numBots; i++) {
+                const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+                players.push({
+                    id: `bot${i+1}`,
+                    name: botName,
+                    isHuman: false,
+                    hand: [],
+                    eliminated: false,
+                    avatar: `https://placehold.co/50x50/4a5568/ffffff?text=${botName.charAt(0)}`
+                });
+            }
+            
+            gameModeSelection.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            gameContainer.classList.add('flex');
+            startGame();
+        }
+
+        function initializeMultiplayerGame(playersData) {
+            isMultiplayer = true;
+            players = [];
+            eliminatedPlayers.clear();
+            
+            // Create players array from multiplayer data
+            Object.entries(playersData).forEach(([id, data]) => {
+                const isCurrentPlayer = id === playerId;
+                if (isCurrentPlayer) {
+                    players.push({
+                        id: id,
+                        name: data.name,
+                        isHuman: true,
+                        regularHand: [],
+                        actionHand: [],
+                        eliminated: false
+                    });
+                } else {
+                    players.push({
+                        id: id,
+                        name: data.name,
+                        isHuman: false,
+                        hand: [],
+                        eliminated: false,
+                        avatar: `https://placehold.co/50x50/4a5568/ffffff?text=${data.name.charAt(0)}`
+                    });
                 }
-                profileDiv.innerHTML = `
-                    <div class="player-avatar" style="background-image: url('https://placehold.co/50x50/4a5568/ffffff?text=${player.name.charAt(0)}')"></div>
-                    <div class="text-base font-semibold">${player.name}</div>
-                    <div class="card-stack-container"></div>
-                `;
-                const handContainer = profileDiv.querySelector('.card-stack-container');
-                renderVisualStack(handContainer, totalCards);
-                opponentsArea.appendChild(profileDiv);
             });
             
-            // Render piles
-            renderVisualStack(document.getElementById('draw-pile'), drawPile ? drawPile.length : 0);
-            renderDiscardPile(discardPile || []);
-        }
-        
-        function resetToMainMenu() {
-            if (gameUnsubscribe) gameUnsubscribe();
-            gameContainer.classList.add('hidden');
-            lobbyScreen.classList.add('hidden');
-            multiplayerSetup.classList.add('hidden');
-            singlePlayerSetup.classList.add('hidden');
-            mainMenu.classList.remove('hidden');
-            gameId = null;
-            localPlayerId = null;
-            gameRef = null;
+            multiplayerScreen.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            gameContainer.classList.add('flex');
+            startGame();
         }
 
-        // --- SHARED GAME LOGIC & RENDERING ---
+        // === GAME LOGIC (Enhanced for elimination modes) ===
+
+        function generateBotName() {
+            return BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+        }
+
         function createDeck() {
             const deck = [];
             const cardDistribution = {
@@ -553,20 +1038,407 @@
             }
         }
 
-        function renderHand(handArray, containerDiv, handName) {
-            containerDiv.innerHTML = '';
-            if (!handArray) return;
-            const totalCards = handArray.length;
-            const overlap = 50;
-            const totalWidth = 120 + (totalCards > 1 ? (totalCards - 1) * overlap : 0);
-            
-            handArray.forEach((card, i) => {
-                const cardEl = createCardElement(card, true, i, handName);
-                const xOffset = (i * overlap) - (totalWidth / 2) + 60;
-                cardEl.style.transform = `translateX(${xOffset}px)`;
-                cardEl.style.zIndex = i;
-                containerDiv.appendChild(cardEl);
+        async function startGame() {
+            deck = createDeck();
+            shuffleDeck(deck);
+            discardPile = [];
+            drawPile = deck;
+
+            players.forEach(p => {
+                if (p.isHuman) {
+                    p.regularHand = [];
+                    p.actionHand = [];
+                } else {
+                    p.hand = [];
+                }
+                p.eliminated = false;
             });
+
+            eliminatedPlayers.clear();
+            updateGameInfoDisplay();
+            
+            updateStatus("Shuffling...");
+            renderGame();
+            await new Promise(r => setTimeout(r, 800));
+
+            // Deal cards
+            for (let i = 0; i < 6; i++) {
+                for(let j = 0; j < players.length; j++) {
+                    if (!players[j].eliminated) {
+                        await dealCardToPlayer(j);
+                    }
+                }
+            }
+            
+            let firstCardIndex = drawPile.findIndex(card => !ACTION_CARDS.includes(card.number));
+            if (firstCardIndex === -1) { firstCardIndex = 0; }
+            discardPile = [drawPile.splice(firstCardIndex, 1)[0]];
+            
+            activeStack = null;
+            whotRequest = null;
+            holdOnActive = false;
+            turnsToSkip = 0;
+            currentPlayerIndex = 0;
+            renderGame();
+            updateStatusMessage();
+            
+            // Sync game state if multiplayer
+            if (isMultiplayer && isHost) {
+                syncGameStateToServer();
+            }
+        }
+
+        function updateGameInfoDisplay() {
+            document.getElementById('round-counter').textContent = gameRound;
+            document.getElementById('players-remaining').textContent = `Players: ${players.filter(p => !p.eliminated).length}`;
+            document.getElementById('game-mode-display').textContent = eliminationStyle === 'cardCount' ? 'Card Count Mode' : 'Last Standing Mode';
+        }
+
+        // === CARD COUNTING AND ELIMINATION ===
+
+        function calculatePlayerCardCount(player) {
+            if (player.isHuman) {
+                return [...player.regularHand, ...player.actionHand].reduce((sum, card) => sum + card.number, 0);
+            } else {
+                return player.hand.reduce((sum, card) => sum + card.number, 0);
+            }
+        }
+
+        function checkForRoundEnd() {
+            const activePlayers = players.filter(p => !p.eliminated);
+            const playersWithCards = activePlayers.filter(p => {
+                const handSize = p.isHuman ? p.regularHand.length + p.actionHand.length : p.hand.length;
+                return handSize > 0;
+            });
+
+            // Check if someone finished their cards
+            const finishedPlayers = activePlayers.filter(p => {
+                const handSize = p.isHuman ? p.regularHand.length + p.actionHand.length : p.hand.length;
+                return handSize === 0;
+            });
+
+            if (finishedPlayers.length > 0) {
+                handleRoundEnd();
+                return true;
+            }
+
+            return false;
+        }
+
+        function handleRoundEnd() {
+            const activePlayers = players.filter(p => !p.eliminated);
+            
+            if (eliminationStyle === 'cardCount') {
+                // Find player with highest card count
+                let highestCount = -1;
+                let playerToEliminate = null;
+
+                activePlayers.forEach(player => {
+                    const handSize = player.isHuman ? player.regularHand.length + player.actionHand.length : player.hand.length;
+                    if (handSize > 0) { // Only count players who still have cards
+                        const cardCount = calculatePlayerCardCount(player);
+                        if (cardCount > highestCount) {
+                            highestCount = cardCount;
+                            playerToEliminate = player;
+                        }
+                    }
+                });
+
+                if (playerToEliminate) {
+                    eliminatePlayer(playerToEliminate, `Eliminated with ${highestCount} points`);
+                }
+            } else { // lastStanding mode
+                // Find the last player with cards
+                const playersWithCards = activePlayers.filter(p => {
+                    const handSize = p.isHuman ? p.regularHand.length + p.actionHand.length : p.hand.length;
+                    return handSize > 0;
+                });
+
+                if (playersWithCards.length === 1) {
+                    eliminatePlayer(playersWithCards[0], "Last player standing this round");
+                }
+            }
+
+            // Check for overall game end
+            const remainingPlayers = players.filter(p => !p.eliminated);
+            if (remainingPlayers.length === 1) {
+                endGame(remainingPlayers[0]);
+                return;
+            }
+
+            // Start new round
+            setTimeout(() => {
+                gameRound++;
+                startGame();
+            }, 3000);
+        }
+
+        function eliminatePlayer(player, reason) {
+            player.eliminated = true;
+            eliminatedPlayers.add(player.id);
+            showToast(`${player.name} eliminated! ${reason}`, 'info');
+            updateGameInfoDisplay();
+            renderGame();
+        }
+
+        // === ENHANCED RENDERING ===
+
+        function renderGame() {
+            if (players.length === 0) return;
+            
+            const humanPlayer = players[0];
+            if (!humanPlayer.eliminated) {
+                humanPlayer.regularHand.sort((a, b) => a.number - b.number);
+                humanPlayer.actionHand.sort((a, b) => a.number - b.number);
+                
+                renderHand(humanPlayer.regularHand, leftHandDiv, 'regular');
+                renderHand(humanPlayer.actionHand, rightHandDiv, 'action');
+                renderPushButtons();
+            }
+
+            computerPlayersArea.innerHTML = '';
+            players.forEach((player, index) => {
+                if (!player.isHuman) {
+                    const profileDiv = document.createElement('div');
+                    profileDiv.className = 'computer-player-profile';
+                    
+                    if (player.eliminated) {
+                        profileDiv.classList.add('eliminated');
+                    } else if (index === currentPlayerIndex && !generalMarketState.active) {
+                        profileDiv.classList.add('active-turn');
+                    }
+                    
+                    profileDiv.innerHTML = `
+                        <img src="${player.avatar}" alt="Bot Avatar" class="bot-avatar">
+                        <div class="text-base font-semibold">${player.name}</div>
+                        ${player.eliminated ? '<div class="text-sm text-red-400">Eliminated</div>' : ''}
+                    `;
+                    
+                    const handContainer = document.createElement('div');
+                    handContainer.className = 'card-stack-container';
+                    if (!player.eliminated) {
+                        renderVisualStack(handContainer, player.hand.length);
+                    }
+                    
+                    profileDiv.appendChild(handContainer);
+                    computerPlayersArea.appendChild(profileDiv);
+                }
+            });
+
+            // Render discard pile
+            discardPileDiv.innerHTML = '';
+            if (discardPile.length > 0) {
+                const cardsToShow = discardPile.slice(-5);
+                const overlap = 25;
+                const cardWidth = window.innerWidth <= 1024 ? 90 : 120;
+                const totalWidth = cardWidth + (cardsToShow.length > 1 ? (cardsToShow.length - 1) * overlap : 0);
+                
+                const containerWidth = discardPileDiv.offsetWidth;
+                const groupStartX = (containerWidth - totalWidth) / 2;
+
+                cardsToShow.forEach((card, i) => {
+                    const cardEl = createCardElement(card, true);
+                    cardEl.style.position = 'absolute';
+                    const xOffset = groupStartX + (i * overlap);
+                    const yOffset = i * 2;
+                    cardEl.style.left = `${xOffset}px`;
+                    cardEl.style.top = `${yOffset}px`;
+                    cardEl.style.zIndex = i;
+                    discardPileDiv.appendChild(cardEl);
+                });
+            }
+           
+            renderVisualStack(drawPileDiv, drawPile.length);
+            updateStatusMessage();
+            updateGameInfoDisplay();
+        }
+
+        // === MULTIPLAYER SYNC ===
+
+        async function syncGameStateToServer() {
+            if (!isMultiplayer || !isHost || !roomCode) return;
+
+            const gameState = {
+                players: players.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    eliminated: p.eliminated,
+                    handSize: p.isHuman ? p.regularHand.length + p.actionHand.length : p.hand.length
+                })),
+                currentPlayerIndex,
+                discardPile: discardPile.slice(-1), // Only send top card
+                drawPileSize: drawPile.length,
+                gameRound,
+                eliminationStyle,
+                activeStack,
+                whotRequest,
+                generalMarketState,
+                lastUpdate: Date.now()
+            };
+
+            try {
+                await window.firebase.set(
+                    window.firebase.ref(window.firebase.database, `rooms/${roomCode}/gameState`),
+                    gameState
+                );
+            } catch (error) {
+                console.error('Error syncing game state:', error);
+            }
+        }
+
+        function updateGameStateFromServer(gameState) {
+            if (isHost) return; // Host doesn't need to update from server
+
+            // Update non-host game state
+            currentPlayerIndex = gameState.currentPlayerIndex;
+            gameRound = gameState.gameRound;
+            eliminationStyle = gameState.eliminationStyle;
+            activeStack = gameState.activeStack;
+            whotRequest = gameState.whotRequest;
+            generalMarketState = gameState.generalMarketState || { active: false, initiator: null, respondedMask: [], playersWhoPlayed: [] };
+
+            // Update player elimination status
+            if (gameState.players) {
+                gameState.players.forEach(serverPlayer => {
+                    const localPlayer = players.find(p => p.id === serverPlayer.id);
+                    if (localPlayer) {
+                        localPlayer.eliminated = serverPlayer.eliminated;
+                    }
+                });
+            }
+
+            // Update discard pile
+            if (gameState.discardPile && gameState.discardPile.length > 0) {
+                discardPile = [...gameState.discardPile];
+            }
+
+            renderGame();
+        }
+
+        // === GAME LOGIC MODIFICATIONS FOR ELIMINATION ===
+
+        async function playCard(card, playerIdx) {
+            discardPile.push(card);
+            whotRequest = null;
+            if (card.number !== 1) holdOnActive = false;
+
+            const player = players[playerIdx];
+            const hand = player.isHuman ? [...player.regularHand, ...player.actionHand] : player.hand;
+            
+            // Check for round end
+            if (hand.length === 0) {
+                if (ACTION_CARDS.includes(card.number)) {
+                    await dealCardToPlayer(playerIdx);
+                }
+                if (!checkForRoundEnd()) {
+                    endTurn();
+                }
+                return;
+            }
+
+            renderGame();
+            await applyCardEffect(card, playerIdx);
+            
+            // Sync to server if multiplayer host
+            if (isMultiplayer && isHost) {
+                syncGameStateToServer();
+            }
+        }
+
+        function endGame(winner) {
+            const winnerModal = document.getElementById('winner-modal');
+            const winnerText = document.getElementById('winner-text');
+            const winnerDescription = document.getElementById('winner-description');
+            
+            winnerText.textContent = `🏆 ${winner.name.toUpperCase()} WINS! 🏆`;
+            winnerDescription.textContent = `Game completed after ${gameRound} rounds using ${eliminationStyle === 'cardCount' ? 'Card Count' : 'Last Standing'} elimination!`;
+            
+            winnerModal.classList.remove('hidden');
+
+            // Clean up multiplayer room if host
+            if (isMultiplayer && isHost && roomCode) {
+                window.firebase.remove(window.firebase.ref(window.firebase.database, `rooms/${roomCode}`));
+            }
+        }
+
+        document.getElementById('play-again-btn').addEventListener('click', () => {
+            document.getElementById('winner-modal').classList.add('hidden');
+            gameRound = 1;
+            if (isMultiplayer) {
+                resetToMainMenu();
+            } else {
+                startGame();
+            }
+        });
+
+        function resetToMainMenu() {
+            leaveRoom();
+            document.getElementById('winner-modal').classList.add('hidden');
+            gameContainer.classList.add('hidden');
+            gameContainer.classList.remove('flex');
+            multiplayerScreen.classList.add('hidden');
+            joinGameScreen.classList.add('hidden');
+            gameModeSelection.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+            
+            // Reset all game state
+            players = [];
+            eliminatedPlayers.clear();
+            gameRound = 1;
+            gameStarted = false;
+            currentPlayerIndex = 0;
+        }
+
+        // === REST OF GAME LOGIC (Same as before) ===
+
+        function createCardElement(card, isFaceUp = true, cardIndex = -1, handName = '') {
+            const cardDiv = document.createElement('div');
+            if (!isFaceUp) {
+                cardDiv.className = 'card card-back';
+                cardDiv.innerHTML = `<div class="whot-text-back">Whot</div><div class="whot-text-back" style="transform: rotate(180deg);">Whot</div>`;
+                return cardDiv;
+            }
+            cardDiv.className = 'card';
+            const { shape, number } = card;
+            if (shape === 'whot') {
+                cardDiv.innerHTML = `
+                    <div class="corner top-left"><span>20</span></div>
+                    <div class="whot-card-center">
+                        <div class="whot-text">Whot</div>
+                        <div class="whot-text" style="transform: rotate(180deg);">Whot</div>
+                    </div>
+                    <div class="corner bottom-right"><span>20</span></div>
+                `;
+            } else {
+                const shapeSVG = SHAPES_SVG[shape];
+                cardDiv.innerHTML = `
+                    <div class="corner top-left">
+                        <span>${number}</span>
+                        <div class="corner-shape">${shapeSVG}</div>
+                    </div>
+                    <div class="card-symbol">${shapeSVG}</div>
+                    <div class="corner bottom-right">
+                        <span>${number}</span>
+                        <div class="corner-shape">${shapeSVG}</div>
+                    </div>
+                `;
+            }
+
+            if (handName === 'regular' || handName === 'action') {
+                cardDiv.draggable = true;
+                cardDiv.dataset.cardIndex = cardIndex;
+                cardDiv.dataset.handName = handName;
+                
+                cardDiv.addEventListener('dragstart', (e) => handleDragStart(e, card, handName, cardIndex));
+                cardDiv.addEventListener('dragend', (e) => handleDragEnd(e));
+                cardDiv.addEventListener('click', (e) => {
+                    if (!isDragging) {
+                        handleCardClick(card, handName);
+                    }
+                });
+            }
+            
+            return cardDiv;
         }
         
         function renderVisualStack(container, cardCount) {
@@ -583,44 +1455,716 @@
             }
         }
 
-        function renderDiscardPile(pile) {
-            const discardPileDiv = document.getElementById('discard-pile');
-            discardPileDiv.innerHTML = '';
-            if (pile.length > 0) {
-                const cardsToShow = pile.slice(-5);
-                cardsToShow.forEach((card, i) => {
-                    const cardEl = createCardElement(card, true);
-                    cardEl.style.position = 'absolute';
-                    cardEl.style.left = '50%';
-                    cardEl.style.transform = `translateX(-50%) translateY(${i*2}px)`;
-                    cardEl.style.zIndex = i;
-                    discardPileDiv.appendChild(cardEl);
+        function renderHand(handArray, containerDiv, handName) {
+            containerDiv.innerHTML = '';
+            const totalCards = handArray.length;
+            const cardWidth = window.innerWidth <= 1024 ? 90 : 120;
+            const overlap = window.innerWidth <= 1024 ? 35 : 50;
+            const totalWidth = cardWidth + (totalCards > 0 ? (totalCards - 1) * overlap : 0);
+            
+            handArray.forEach((card, i) => {
+                const cardEl = createCardElement(card, true, i, handName);
+                const xOffset = (i * overlap) - (totalWidth / 2) + (cardWidth / 2);
+                cardEl.style.transform = `translateX(${xOffset}px)`;
+                cardEl.style.zIndex = i;
+                containerDiv.appendChild(cardEl);
+            });
+        }
+
+        function renderPushButtons() {
+            leftPushButtonsDiv.innerHTML = '';
+            rightPushButtonsDiv.innerHTML = '';
+
+            if (currentPlayerIndex !== 0 || players[0].eliminated) return;
+
+            const humanPlayer = players[0];
+
+            const findPlayablePushableGroups = (hand) => {
+                const counts = hand.reduce((acc, card) => {
+                    acc[card.number] = (acc[card.number] || 0) + 1;
+                    return acc;
+                }, {});
+                
+                return Object.keys(counts)
+                    .map(Number)
+                    .filter(num => {
+                        const cardsWithNum = hand.filter(c => c.number === num);
+                        return counts[num] > 1 && cardsWithNum.some(card => isCardPlayable(card));
+                    });
+            };
+
+            const regularGroups = findPlayablePushableGroups(humanPlayer.regularHand);
+            const actionGroups = findPlayablePushableGroups(humanPlayer.actionHand);
+
+            regularGroups.forEach(num => {
+                const button = document.createElement('button');
+                button.className = 'push-button';
+                button.textContent = `Push ${num}s`;
+                button.onclick = () => playPushGroup(num, 'regular');
+                leftPushButtonsDiv.appendChild(button);
+            });
+
+            actionGroups.forEach(num => {
+                const button = document.createElement('button');
+                button.className = 'push-button';
+                button.textContent = `Push ${num}s`;
+                button.onclick = () => playPushGroup(num, 'action');
+                rightPushButtonsDiv.appendChild(button);
+            });
+        }
+
+        function updateStatus(message) {
+             gameStatusDiv.innerHTML = `<div>${message}</div>`;
+             gameStatusDiv.style.visibility = 'visible';
+        }
+
+        function updateStatusMessage() {
+            if (players.length === 0) return;
+            gameStatusDiv.innerHTML = '';
+            gameStatusDiv.style.visibility = 'hidden';
+        }
+        
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            let bgColor = 'bg-blue-500';
+            if (type === 'error') bgColor = 'bg-red-500';
+            if (type === 'success') bgColor = 'bg-green-500';
+
+            toast.className = `toast text-white px-6 py-3 rounded-lg shadow-lg ${bgColor}`;
+            toast.textContent = message;
+            
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // === DRAG AND DROP HANDLERS ===
+        function handleDragStart(event, card, handName, cardIndex) {
+            draggedCardData = { card, handName, cardIndex };
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', 'card'); 
+            event.target.classList.add('dragging');
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            ctx.globalAlpha = 0;
+            ctx.fillRect(0, 0, 1, 1);
+            event.dataTransfer.setDragImage(canvas, 0, 0);
+            setTimeout(() => {
+                document.querySelectorAll('#left-hand, #right-hand, #discard-pile').forEach(el => {
+                    el.style.pointerEvents = 'auto';
+                });
+            }, 10);
+        }
+
+        function handleDragEnd(event) {
+            event.target.classList.remove('dragging');
+            document.querySelectorAll('.drop-zone').forEach(el => {
+                el.classList.remove('drop-zone');
+            });
+            draggedCardData = null;
+        }
+
+        function handleDragOver(event) {
+            if (draggedCardData) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+            }
+        }
+
+        function handleDragEnter(event) {
+            if (draggedCardData) {
+                event.preventDefault();
+                event.currentTarget.classList.add('drop-zone');
+            }
+        }
+
+        function handleDragLeave(event) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX;
+            const y = event.clientY;
+            if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
+                event.currentTarget.classList.remove('drop-zone');
+            }
+        }
+
+        function handleDropOnHand(event, targetHandName) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.remove('drop-zone');
+            if (!draggedCardData) return;
+
+            const { card, handName: sourceHandName } = draggedCardData;
+            const humanPlayer = players[0];
+            let sourceHand = sourceHandName === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
+            let targetHand = targetHandName === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
+            
+            const cardIndex = sourceHand.findIndex(c => c.shape === card.shape && c.number === card.number);
+            if (cardIndex !== -1) {
+                const [removedCard] = sourceHand.splice(cardIndex, 1);
+                targetHand.push(removedCard);
+                renderGame();
+                
+                if (isMultiplayer && isHost) {
+                    syncGameStateToServer();
+                }
+            }
+        }
+
+        function handleDropOnDiscardPile(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.remove('drop-zone');
+            if (!draggedCardData) return;
+
+            const { card, handName } = draggedCardData;
+            
+            if ( (generalMarketState.active && card.number !== 14) || (!generalMarketState.active && currentPlayerIndex !== 0) ) {
+                return;
+            }
+            
+            if (!isCardPlayable(card)) return;
+
+            const humanPlayer = players[0];
+            let sourceHand = handName === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
+            const cardIndex = sourceHand.findIndex(c => c.shape === card.shape && c.number === card.number);
+            
+            if (cardIndex !== -1) {
+                sourceHand.splice(cardIndex, 1);
+                renderGame();
+                animateCardPlayFromPosition(card, null, handName).then(() => {
+                    if (generalMarketState.active && card.number === 14) {
+                        generalMarketState.playersWhoPlayed.push(0);
+                        generalMarketState.respondedMask[0] = true;
+                        discardPile.push(card);
+                        renderGame();
+                        checkIfMarketIsOver();
+                    } else {
+                        playCard(card, 0);
+                    }
                 });
             }
         }
 
-        function createCardElement(card, isFaceUp = true, cardIndex, handName) {
-            const cardDiv = document.createElement('div');
-            cardDiv.className = 'card';
-            if (!isFaceUp) {
-                cardDiv.classList.add('card-back');
-                cardDiv.innerHTML = `<div class="whot-text-back">Whot</div><div class="whot-text-back" style="transform: rotate(180deg);">Whot</div>`;
-                return cardDiv;
+        function setupDragAndDrop() {
+            leftHandDiv.addEventListener('dragover', handleDragOver);
+            leftHandDiv.addEventListener('dragenter', handleDragEnter);
+            leftHandDiv.addEventListener('dragleave', handleDragLeave);
+            leftHandDiv.addEventListener('drop', (e) => handleDropOnHand(e, 'regular'));
+
+            rightHandDiv.addEventListener('dragover', handleDragOver);
+            rightHandDiv.addEventListener('dragenter', handleDragEnter);
+            rightHandDiv.addEventListener('dragleave', handleDragLeave);
+            rightHandDiv.addEventListener('drop', (e) => handleDropOnHand(e, 'action'));
+
+            discardPileDiv.addEventListener('dragover', handleDragOver);
+            discardPileDiv.addEventListener('dragenter', (e) => {
+                if (draggedCardData && isCardPlayable(draggedCardData.card)) {
+                     if (generalMarketState.active || currentPlayerIndex === 0) {
+                        e.preventDefault();
+                        e.currentTarget.classList.add('drop-zone');
+                    }
+                }
+            });
+            discardPileDiv.addEventListener('dragleave', handleDragLeave);
+            discardPileDiv.addEventListener('drop', handleDropOnDiscardPile);
+        }
+
+        // Continue with the rest of the game logic functions...
+        // (dealCardToPlayer, isCardPlayable, handleCardClick, etc. - same as before)
+        
+        async function dealCardToPlayer(playerIndex) {
+            if (drawPile.length === 0) {
+                if (!reshuffleDiscardPile()) {
+                    showToast("Market is empty!", "error");
+                    return;
+                }
+                renderGame();
+                await new Promise(r => setTimeout(r, 200));
             }
             
-            const { shape, number } = card;
-            const shapeSVG = SHAPES_SVG[shape];
-            if (shape === 'whot') {
-                 cardDiv.innerHTML = `<div class="corner top-left"><span>20</span></div><div style="text-align:center; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);"><div class="whot-text">Whot</div><div class="whot-text" style="transform: rotate(180deg);">Whot</div></div><div class="corner bottom-right"><span>20</span></div>`;
+            const player = players[playerIndex];
+            const card = drawPile[drawPile.length - 1]; 
+            
+            if (player.isHuman) {
+                const targetDiv = ACTION_CARDS.includes(card.number) ? rightHandDiv : leftHandDiv;
+                const hand = ACTION_CARDS.includes(card.number) ? player.actionHand : player.regularHand;
+                await dealCard(hand, targetDiv);
             } else {
-                cardDiv.innerHTML = `<div class="corner top-left"><span>${number}</span><div style="width:14px; height:14px;">${shapeSVG}</div></div><div class="card-symbol">${shapeSVG}</div><div class="corner bottom-right"><span>${number}</span><div style="width:14px; height:14px;">${shapeSVG}</div></div>`;
+                const targetDiv = document.querySelector(`#computer-players-area .computer-player-profile:nth-child(${playerIndex}) .card-stack-container`);
+                await dealCard(player.hand, targetDiv);
             }
+        }
 
-            // Add event listeners for local player's cards
-            // This will need to be expanded to trigger Firebase updates
-            return cardDiv;
+        async function dealCard(handArray, targetDiv) {
+            if (drawPile.length === 0) return;
+
+            await animateCardDraw(targetDiv);
+            handArray.push(drawPile.pop());
+
+            if (drawPile.length === 0) {
+                reshuffleDiscardPile();
+            }
+            renderGame(); 
+        }
+
+        function isCardPlayable(card) {
+            if (generalMarketState.active) {
+                return card.number === 14;
+            }
+            if (discardPile.length === 0) return false;
+            const topCard = discardPile[discardPile.length - 1];
+            if (card.number === 20) return true;
+            if (whotRequest) return card.shape === whotRequest.shape;
+            if (activeStack) return card.number === activeStack.card || card.number === 20;
+            if (holdOnActive) return card.number === 1 || card.shape === topCard.shape;
+            return card.shape === topCard.shape || card.number === topCard.number;
         }
         
+        function reshuffleDiscardPile() {
+            if (discardPile.length <= 1) return false;
+            const topCard = discardPile.pop();
+            drawPile = [...discardPile];
+            shuffleDeck(drawPile);
+            discardPile = [topCard];
+            return true;
+        }
+
+        async function handleCardClick(card, handName) {
+            if (isDragging) return;
+
+            if (generalMarketState.active) {
+                if (card.number === 14) {
+                    generalMarketState.playersWhoPlayed.push(0);
+                    generalMarketState.respondedMask[0] = true;
+
+                    const humanPlayer = players[0];
+                    const hand = handName === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
+                    const cardIndex = hand.findIndex(c => c.shape === card.shape && c.number === card.number);
+                    if (cardIndex !== -1) hand.splice(cardIndex, 1);
+                    
+                    await animateCardPlayFromPosition(card, null, handName);
+                    discardPile.push(card);
+                    renderGame();
+                    checkIfMarketIsOver();
+                }
+                return;
+            }
+            
+            if (currentPlayerIndex !== 0 || !isCardPlayable(card) || players[0].eliminated) return;
+            
+            const humanPlayer = players[0];
+            let startRect = null; 
+            
+            const hand = handName === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
+            const cardIndex = hand.findIndex(c => c.shape === card.shape && c.number === card.number);
+            if (cardIndex !== -1) hand.splice(cardIndex, 1);
+            
+            renderGame();
+            await animateCardPlayFromPosition(card, startRect, handName);
+            await playCard(card, 0);
+        }
+
+        async function playPushGroup(number, handName) {
+            if (currentPlayerIndex !== 0 || players[0].eliminated) return;
+
+            const humanPlayer = players[0];
+            let sourceHand = handName === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
+            
+            const cardsToPlay = sourceHand.filter(c => c.number === number);
+            if (cardsToPlay.length < 2 || !cardsToPlay.some(isCardPlayable)) {
+                return;
+            }
+
+            if (handName === 'regular') {
+                humanPlayer.regularHand = sourceHand.filter(c => c.number !== number);
+            } else {
+                humanPlayer.actionHand = sourceHand.filter(c => c.number !== number);
+            }
+            renderGame();
+
+            for (const card of cardsToPlay) {
+                await animateCardPlayFromPosition(card, null, handName);
+                discardPile.push(card);
+                renderGame();
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            const lastCard = cardsToPlay[cardsToPlay.length - 1];
+            const numPlayed = cardsToPlay.length;
+
+            whotRequest = null;
+            if (lastCard.number !== 1) holdOnActive = false;
+
+            const hand = [...humanPlayer.regularHand, ...humanPlayer.actionHand];
+            if (hand.length === 0) {
+                if (ACTION_CARDS.includes(lastCard.number)) {
+                    await dealCardToPlayer(currentPlayerIndex);
+                }
+                if (!checkForRoundEnd()) {
+                    endTurn();
+                }
+                return;
+            }
+
+            switch (lastCard.number) {
+                case 1: 
+                    renderGame();
+                    break;
+                case 14:
+                    generalMarketState.active = true;
+                    generalMarketState.initiator = 0;
+                    generalMarketState.respondedMask = players.map((_, i) => i === 0);
+                    generalMarketState.playersWhoPlayed = [0];
+                    renderGame();
+                    players.forEach((p, i) => {
+                        if (!p.isHuman && !p.eliminated) respondToMarketAsBot(i);
+                    });
+                    break;
+                case 8: 
+                    turnsToSkip = numPlayed;
+                    endTurn();
+                    break;
+                case 20: 
+                    if (activeStack) { activeStack = null; }
+                    requestShapeFromPlayer();
+                    break;
+                case 2: case 5: 
+                    const penaltyCardNumber = lastCard.number;
+                    if (activeStack && activeStack.card === penaltyCardNumber) {
+                        activeStack.count += numPlayed;
+                    } else {
+                        activeStack = { card: penaltyCardNumber, count: numPlayed };
+                    }
+                    renderGame();
+                    endTurn();
+                    break;
+                default:
+                    endTurn();
+                    break;
+            }
+            
+            if (isMultiplayer && isHost) {
+                syncGameStateToServer();
+            }
+        }
+
+        async function applyCardEffect(card, playerIdx) {
+            let shouldEndTurn = true;
+
+            switch (card.number) {
+                case 1:
+                    shouldEndTurn = false;
+                    if (players[playerIdx].isHuman) {
+                        renderGame();
+                    } else {
+                        setTimeout(() => botTurn(), 1000);
+                    }
+                    break;
+                case 14:
+                    shouldEndTurn = false;
+                    if (generalMarketState.active) return;
+
+                    generalMarketState.active = true;
+                    generalMarketState.initiator = playerIdx;
+                    generalMarketState.respondedMask = players.map(() => false);
+                    generalMarketState.respondedMask[playerIdx] = true;
+                    generalMarketState.playersWhoPlayed = [playerIdx];
+                    
+                    renderGame();
+                    
+                    players.forEach((p, i) => {
+                        if (i !== playerIdx && !p.eliminated) {
+                           if (p.isHuman) {
+                               // just wait for human input
+                           } else {
+                               respondToMarketAsBot(i);
+                           }
+                        }
+                    });
+                    break;
+                case 8:
+                    turnsToSkip = 1;
+                    break;
+                case 20:
+                    if (activeStack) { activeStack = null; }
+                    if (players[playerIdx].isHuman) {
+                        requestShapeFromPlayer();
+                        shouldEndTurn = false;
+                    } else {
+                        const chosenShape = chooseBestShapeForBot(players[playerIdx]);
+                        whotRequest = { shape: chosenShape };
+                        const topCard = discardPile[discardPile.length - 1];
+                        if (topCard && topCard.number === 20) {
+                            topCard.shape = chosenShape;
+                        }
+                        renderGame();
+                    }
+                    break;
+                case 2: case 5:
+                    const penalty = card.number === 2 ? 2 : 3;
+                    if (activeStack && activeStack.card === card.number) {
+                        activeStack.count++;
+                    } else {
+                        activeStack = { card: card.number, count: 1 };
+                    }
+                    renderGame();
+                    break;
+            }
+
+            if (shouldEndTurn) {
+                endTurn();
+            }
+        }
+
+        function endTurn() {
+            const activePlayers = players.filter(p => !p.eliminated);
+            let nextPlayerIndex;
+            
+            // Find next non-eliminated player
+            do {
+                nextPlayerIndex = (currentPlayerIndex + 1 + turnsToSkip) % players.length;
+                turnsToSkip = 0;
+            } while (players[nextPlayerIndex].eliminated && activePlayers.length > 1);
+            
+            currentPlayerIndex = nextPlayerIndex;
+            
+            setTimeout(() => {
+                renderGame();
+                if (!players[currentPlayerIndex].isHuman && !players[currentPlayerIndex].eliminated) {
+                    botTurn();
+                }
+            }, 800);
+        }
+
+        async function handlePlayerDraw() {
+            if (generalMarketState.active) {
+                if (currentPlayerIndex === 0 && !generalMarketState.respondedMask[0]) {
+                    generalMarketState.respondedMask[0] = true;
+                    checkIfMarketIsOver();
+                }
+                return;
+            }
+            
+            if (currentPlayerIndex !== 0 || players[0].eliminated) return;
+
+            holdOnActive = false;
+
+            if (activeStack) {
+                const penalty = activeStack.card === 2 ? 2 : 3;
+                const totalCards = activeStack.count * penalty;
+                for(let i = 0; i < totalCards; i++) await dealCardToPlayer(currentPlayerIndex);
+                activeStack = null;
+            } else {
+                await dealCardToPlayer(currentPlayerIndex);
+            }
+            renderGame();
+            endTurn();
+            
+            if (isMultiplayer && isHost) {
+                syncGameStateToServer();
+            }
+        }
+
+        // === COMPUTER AI ===
+
+        async function botTurn() {
+            updateStatusMessage();
+            await new Promise(r => setTimeout(r, 1200));
+            
+            const bot = players[currentPlayerIndex];
+            if (bot.eliminated) {
+                endTurn();
+                return;
+            }
+
+            if (activeStack) {
+                const whotCard = bot.hand.find(c => c.number === 20);
+                if (whotCard) {
+                    bot.hand = bot.hand.filter(c => c !== whotCard);
+                    await animateCardPlayFromComputer(whotCard);
+                    await playCard(whotCard, currentPlayerIndex);
+                    return;
+                }
+                const counterCard = bot.hand.find(c => c.number === activeStack.card);
+                if (counterCard) {
+                    bot.hand = bot.hand.filter(c => c !== counterCard);
+                    await animateCardPlayFromComputer(counterCard);
+                    await playCard(counterCard, currentPlayerIndex);
+                    return;
+                } else {
+                    const penalty = activeStack.card === 2 ? 2 : 3;
+                    const totalCards = activeStack.count * penalty;
+                    for(let i = 0; i < totalCards; i++) await dealCardToPlayer(currentPlayerIndex);
+                    activeStack = null;
+                    endTurn();
+                    return;
+                }
+            }
+
+            const playableCards = bot.hand.filter(c => isCardPlayable(c));
+            if (playableCards.length > 0) {
+                const specialCard = playableCards.find(c => [1, 2, 5, 8, 14, 20].includes(c.number));
+                let cardToPlay = specialCard || playableCards[0];
+                
+                bot.hand = bot.hand.filter(c => c !== cardToPlay);
+                await animateCardPlayFromComputer(cardToPlay);
+                await playCard(cardToPlay, currentPlayerIndex);
+            } else {
+                holdOnActive = false;
+                await dealCardToPlayer(currentPlayerIndex);
+                endTurn();
+            }
+        }
+
+        function chooseBestShapeForBot(bot) {
+            const shapeCounts = {};
+            bot.hand.forEach(card => {
+                if (card.shape !== 'whot') shapeCounts[card.shape] = (shapeCounts[card.shape] || 0) + 1;
+            });
+            let bestShape = 'circle', maxCount = 0;
+            for (const shape in shapeCounts) {
+                if (shapeCounts[shape] > maxCount) { maxCount = shapeCounts[shape]; bestShape = shape; }
+            }
+            return bestShape;
+        }
+
+        // === GENERAL MARKET LOGIC ===
+
+        function respondToMarketAsBot(botIndex) {
+            setTimeout(async () => {
+                const bot = players[botIndex];
+                if (bot.eliminated) {
+                    generalMarketState.respondedMask[botIndex] = true;
+                    checkIfMarketIsOver();
+                    return;
+                }
+                
+                const marketCard = bot.hand.find(c => c.number === 14);
+
+                if (marketCard) {
+                    bot.hand = bot.hand.filter(c => c !== marketCard);
+                    generalMarketState.playersWhoPlayed.push(botIndex);
+                    await animateCardPlayFromComputer(marketCard, botIndex);
+                    discardPile.push(marketCard);
+                    renderGame();
+                }
+
+                generalMarketState.respondedMask[botIndex] = true;
+                checkIfMarketIsOver();
+            }, 1000 + Math.random() * 500);
+        }
+
+        function checkIfMarketIsOver() {
+            if (!generalMarketState.active) return;
+            const activePlayers = players.filter(p => !p.eliminated);
+            const allActiveResponded = activePlayers.every(p => generalMarketState.respondedMask[players.indexOf(p)] === true);
+            
+            if (allActiveResponded) {
+                resolveGeneralMarket();
+            }
+        }
+
+        async function resolveGeneralMarket() {
+            const penaltyCount = generalMarketState.playersWhoPlayed.length;
+            for (let i = 0; i < players.length; i++) {
+                if (!generalMarketState.playersWhoPlayed.includes(i) && !players[i].eliminated) {
+                    for (let j = 0; j < penaltyCount; j++) {
+                        await dealCardToPlayer(i);
+                    }
+                }
+            }
+            
+            currentPlayerIndex = generalMarketState.initiator;
+            generalMarketState = { active: false, initiator: null, respondedMask: [], playersWhoPlayed: [] };
+            
+            renderGame();
+            
+            if (!players[currentPlayerIndex].isHuman && !players[currentPlayerIndex].eliminated) {
+                setTimeout(() => botTurn(), 1000);
+            }
+            
+            if (isMultiplayer && isHost) {
+                syncGameStateToServer();
+            }
+        }
+
+        // === WHOT CARD LOGIC ===
+
+        function requestShapeFromPlayer() {
+            shapeOptionsDiv.innerHTML = '';
+            Object.keys(SHAPES_SVG).forEach(shape => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = `shape-option w-20 h-20 flex items-center justify-center rounded-full bg-gray-700 cursor-pointer text-white`;
+                optionDiv.innerHTML = `<div class="w-12 h-12">${SHAPES_SVG[shape]}</div>`;
+                optionDiv.addEventListener('click', () => selectShape(shape));
+                shapeOptionsDiv.appendChild(optionDiv);
+            });
+            shapeModal.classList.remove('hidden');
+            setTimeout(() => shapeModal.classList.remove('opacity-0'), 10);
+        }
+
+        function selectShape(shape) {
+            whotRequest = { shape };
+            const topCard = discardPile[discardPile.length - 1];
+            if (topCard && topCard.number === 20) {
+                topCard.shape = shape;
+            }
+            shapeModal.classList.add('opacity-0');
+            setTimeout(() => shapeModal.classList.add('hidden'), 300);
+            renderGame();
+            endTurn();
+            
+            if (isMultiplayer && isHost) {
+                syncGameStateToServer();
+            }
+        }
+
+        // === ANIMATIONS ===
+        function animateCardDraw(targetElement) {
+            return new Promise(resolve => {
+                const startRect = drawPileDiv.getBoundingClientRect();
+                const targetRect = targetElement.getBoundingClientRect();
+                const animCard = document.createElement('div');
+                animCard.className = 'card card-back drawing-card';
+                animCard.innerHTML = createCardElement(null, false).innerHTML;
+                document.body.appendChild(animCard);
+                animCard.style.left = `${startRect.left + startRect.width / 2 - 60}px`;
+                animCard.style.top = `${startRect.top}px`;
+                animCard.style.width = '120px';
+                animCard.style.height = '180px';
+
+                animCard.addEventListener('transitionend', () => {
+                    animCard.remove();
+                    resolve();
+                }, { once: true });
+
+                requestAnimationFrame(() => {
+                    const endX = targetRect.left;
+                    const endY = targetRect.top;
+                    animCard.style.transform = `translate(${endX - (startRect.left + startRect.width / 2 - 60)}px, ${endY - startRect.top}px)`;
+                });
+            });
+        }
+
+        // === EVENT LISTENERS & INITIALIZATION ===
+        
+        drawPileDiv.addEventListener('click', handlePlayerDraw);
+        
+        window.onload = () => {
+            setupDragAndDrop();
+        };
+
+        window.addEventListener('resize', renderGame);
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            leaveRoom();
+        });
+
     </script>
 </body>
-</html>
+</html> 
