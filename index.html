@@ -1255,6 +1255,14 @@
 
             renderGame();
             updateStatusMessage();
+            
+            // Show market status for human player
+            if (generalMarketState.active) {
+                const humanPlayerIndex = players.findIndex(p => p.isHuman);
+                if (humanPlayerIndex !== -1 && !generalMarketState.respondedMask[humanPlayerIndex]) {
+                    showToast('General Market! Play a 14 or click draw pile to pass', 'info');
+                }
+            }
 
             // Check for win condition
             if (serverState.winner) {
@@ -2120,19 +2128,24 @@
                     renderGame();
                     break;
                 case 14:
-                    generalMarketState.active = true;
-                    generalMarketState.initiator = humanPlayerIndex;
-                    generalMarketState.respondedMask = players.map((_, i) => i === humanPlayerIndex);
-                    generalMarketState.playersWhoPlayed = [humanPlayerIndex];
+                    // General Market - deal one card to each other player for each 14 played
+                    const marketCardsCount = numPlayed;
+                    showToast(`General Market! Everyone gets ${marketCardsCount} card${marketCardsCount > 1 ? 's' : ''}`, 'info');
+                    
+                    for (let i = 0; i < players.length; i++) {
+                        if (i !== humanPlayerIndex && !eliminatedPlayers.includes(i)) {
+                            for (let j = 0; j < marketCardsCount; j++) {
+                                await dealCardToPlayer(i);
+                                await new Promise(r => setTimeout(r, 50));
+                            }
+                        }
+                    }
+                    
                     renderGame();
                     
                     if (gameMode === 'multiplayer') {
                         await updateServerGameState({});
                     }
-                    
-                    players.forEach((p, i) => {
-                        if (!p.isHuman && !eliminatedPlayers.includes(i)) respondToMarketAsBot(i);
-                    });
                     break;
                 case 8: 
                     turnsToSkip = numPlayed;
@@ -2194,30 +2207,21 @@
                     }
                     break;
                 case 14:
-                    shouldEndTurn = false;
-                    if (generalMarketState.active) return;
-
-                    generalMarketState.active = true;
-                    generalMarketState.initiator = playerIdx;
-                    generalMarketState.respondedMask = players.map(() => false);
-                    generalMarketState.respondedMask[playerIdx] = true;
-                    generalMarketState.playersWhoPlayed = [playerIdx];
+                    // General Market - automatically deal one card to every other player
+                    showToast('General Market! Everyone gets a card', 'info');
+                    
+                    for (let i = 0; i < players.length; i++) {
+                        if (i !== playerIdx && !eliminatedPlayers.includes(i)) {
+                            await dealCardToPlayer(i);
+                            await new Promise(r => setTimeout(r, 100)); // Small delay for visual effect
+                        }
+                    }
                     
                     renderGame();
                     
                     if (gameMode === 'multiplayer') {
                         await updateServerGameState({});
                     }
-                    
-                    players.forEach((p, i) => {
-                        if (i !== playerIdx && !eliminatedPlayers.includes(i)) {
-                           if (p.isHuman) {
-                               // wait for human input
-                           } else {
-                               respondToMarketAsBot(i);
-                           }
-                        }
-                    });
                     break;
                 case 8:
                     turnsToSkip = 1;
@@ -2456,12 +2460,18 @@
         function checkIfMarketIsOver() {
             if (!generalMarketState.active) return;
             
+            console.log('Checking if market is over:', generalMarketState);
+            
             // Check only non-eliminated players
             const activePlayers = players.filter((_, i) => !eliminatedPlayers.includes(i));
-            const allActiveResponded = activePlayers.every((player, index) => {
+            const allActiveResponded = activePlayers.every((player) => {
                 const realIndex = players.findIndex(p => p.id === player.id);
-                return generalMarketState.respondedMask[realIndex] === true;
+                const hasResponded = generalMarketState.respondedMask[realIndex] === true;
+                console.log(`Player ${player.name} (index ${realIndex}) responded: ${hasResponded}`);
+                return hasResponded;
             });
+            
+            console.log('All players responded:', allActiveResponded);
             
             if (allActiveResponded) {
                 resolveGeneralMarket();
