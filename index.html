@@ -2236,7 +2236,11 @@
                         whotRequest = { shape: chosenShape };
                         const topCard = discardPile[discardPile.length - 1];
                         if (topCard && topCard.number === 20) {
-                            topCard.shape = chosenShape;
+                            // Create a new card object to avoid modifying the original
+                            discardPile[discardPile.length - 1] = {
+                                ...topCard,
+                                shape: chosenShape
+                            };
                         }
                         renderGame();
                         
@@ -2520,7 +2524,11 @@
             whotRequest = { shape };
             const topCard = discardPile[discardPile.length - 1];
             if (topCard && topCard.number === 20) {
-                topCard.shape = shape;
+                // Create a new card object to avoid modifying the original
+                discardPile[discardPile.length - 1] = {
+                    ...topCard,
+                    shape: shape
+                };
             }
             shapeModal.classList.add('opacity-0');
             setTimeout(() => shapeModal.classList.add('hidden'), 300);
@@ -2772,7 +2780,7 @@
             initializeApp(); // Ensure proper initialization
         };
         
-        // Debug helper (remove in production!)
+        // Debug helper (remove in production)
         window.debugGame = {
             players: () => players,
             gameState: () => ({
