@@ -175,8 +175,45 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        .push-button:hover {
-            background-color: #a16207;
+        .push-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .push-button:disabled:hover {
+            background-color: #ca8a04;
+        }
+        .card.border-4 {
+            border-width: 2px;
+        }
+        .card.border-2 {
+            border-width: 1px;
+        }
+        .border-yellow-400 {
+            border-color: #facc15;
+        }
+        .border-blue-400 {
+            border-color: #60a5fa;
+        }
+        .bg-yellow-400 {
+            background-color: #facc15;
+        }
+        .text-black {
+            color: #000;
+        }
+        @media (max-width: 640px) {
+            .card.border-4 {
+                border-width: 1px;
+            }
+            .card.border-2 {
+                border-width: 1px;
+            }
+            .absolute.-top-2.-right-2 {
+                top: -4px;
+                right: -4px;
+                width: 12px;
+                height: 12px;
+                font-size: 8px;
+            }
         }
         .eliminated {
             opacity: 0.5;
@@ -1799,6 +1836,26 @@
                 return cardDiv;
             }
             cardDiv.className = 'card';
+            
+            // Add visual indicator for push edit mode
+            if (pushEditMode && card.number === currentPushNumber && handName === currentPushHand) {
+                const isSelected = selectedPushCards.some(c => c.cardIndex === cardIndex);
+                if (isSelected) {
+                    const selectedIndex = selectedPushCards.findIndex(c => c.cardIndex === cardIndex);
+                    cardDiv.classList.add('border-4', 'border-yellow-400');
+                    cardDiv.style.boxShadow = '0 0 10px #facc15';
+                    
+                    // Add order number
+                    const orderDiv = document.createElement('div');
+                    orderDiv.className = 'absolute -top-2 -right-2 bg-yellow-400 text-black rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold z-20';
+                    orderDiv.textContent = selectedIndex + 1;
+                    cardDiv.appendChild(orderDiv);
+                } else if (card.number === currentPushNumber) {
+                    cardDiv.classList.add('border-2', 'border-blue-400');
+                    cardDiv.style.opacity = '0.8';
+                }
+            }
+            
             const { shape, number } = card;
             if (shape === 'whot') {
                 cardDiv.innerHTML = `
@@ -1833,7 +1890,11 @@
                 cardDiv.addEventListener('dragend', (e) => handleDragEnd(e));
                 cardDiv.addEventListener('click', (e) => {
                     if (!isDragging) {
-                        handleCardClick(card, handName);
+                        if (pushEditMode && card.number === currentPushNumber && handName === currentPushHand) {
+                            handlePushCardSelection(card, handName, cardIndex);
+                        } else {
+                            handleCardClick(card, handName);
+                        }
                     }
                 });
             }
@@ -1955,6 +2016,12 @@
             updateStatusMessage();
         }
 
+        // Push card selection state
+        let pushEditMode = false;
+        let selectedPushCards = [];
+        let currentPushNumber = null;
+        let currentPushHand = null;
+
         function renderPushButtons() {
             leftPushButtonsDiv.innerHTML = '';
             rightPushButtonsDiv.innerHTML = '';
@@ -1990,11 +2057,23 @@
                 const sortedCards = sortCardsForValidPlay(cardsWithNum);
                 const firstCard = sortedCards[0];
                 
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'flex gap-1 items-center';
+                
                 const button = document.createElement('button');
                 button.className = 'push-button';
                 button.innerHTML = `Push ${num}s<br><small>(${firstCard.shape} first)</small>`;
                 button.onclick = () => playPushGroup(num, 'regular');
-                leftPushButtonsDiv.appendChild(button);
+                
+                const editButton = document.createElement('button');
+                editButton.className = 'push-button bg-blue-600 hover:bg-blue-700';
+                editButton.innerHTML = '✎';
+                editButton.title = 'Customize push order';
+                editButton.onclick = () => enterPushEditMode(num, 'regular');
+                
+                buttonContainer.appendChild(button);
+                buttonContainer.appendChild(editButton);
+                leftPushButtonsDiv.appendChild(buttonContainer);
             });
 
             actionGroups.forEach(num => {
@@ -2002,12 +2081,208 @@
                 const sortedCards = sortCardsForValidPlay(cardsWithNum);
                 const firstCard = sortedCards[0];
                 
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'flex gap-1 items-center';
+                
                 const button = document.createElement('button');
                 button.className = 'push-button';
                 button.innerHTML = `Push ${num}s<br><small>(${firstCard.shape} first)</small>`;
                 button.onclick = () => playPushGroup(num, 'action');
-                rightPushButtonsDiv.appendChild(button);
+                
+                const editButton = document.createElement('button');
+                editButton.className = 'push-button bg-blue-600 hover:bg-blue-700';
+                editButton.innerHTML = '✎';
+                editButton.title = 'Customize push order';
+                editButton.onclick = () => enterPushEditMode(num, 'action');
+                
+                buttonContainer.appendChild(button);
+                buttonContainer.appendChild(editButton);
+                rightPushButtonsDiv.appendChild(buttonContainer);
             });
+        }
+
+        function enterPushEditMode(number, handName) {
+            pushEditMode = true;
+            currentPushNumber = number;
+            currentPushHand = handName;
+            selectedPushCards = [];
+            
+            showToast('Tap cards to set push order. Tap again to remove.', 'info');
+            renderGame();
+            renderPushEditControls();
+        }
+
+        function renderPushEditControls() {
+            if (!pushEditMode) return;
+            
+            const controlsDiv = currentPushHand === 'regular' ? leftPushButtonsDiv : rightPushButtonsDiv;
+            controlsDiv.innerHTML = '';
+            
+            const controlContainer = document.createElement('div');
+            controlContainer.className = 'flex gap-1 items-center';
+            
+            const cancelButton = document.createElement('button');
+            cancelButton.className = 'push-button bg-red-600 hover:bg-red-700';
+            cancelButton.innerHTML = 'Cancel';
+            cancelButton.onclick = exitPushEditMode;
+            
+            const pushButton = document.createElement('button');
+            pushButton.className = 'push-button bg-green-600 hover:bg-green-700';
+            pushButton.innerHTML = `Push ${selectedPushCards.length}`;
+            pushButton.disabled = selectedPushCards.length < 2;
+            pushButton.onclick = executeCustomPush;
+            
+            const orderDisplay = document.createElement('div');
+            orderDisplay.className = 'text-xs text-white';
+            orderDisplay.innerHTML = `Order: ${selectedPushCards.map((_, i) => i + 1).join(', ')}`;
+            
+            controlContainer.appendChild(cancelButton);
+            controlContainer.appendChild(pushButton);
+            controlContainer.appendChild(orderDisplay);
+            controlsDiv.appendChild(controlContainer);
+        }
+
+        function exitPushEditMode() {
+            pushEditMode = false;
+            currentPushNumber = null;
+            currentPushHand = null;
+            selectedPushCards = [];
+            renderGame();
+        }
+
+        function handlePushCardSelection(card, handName, cardIndex) {
+            if (!pushEditMode || card.number !== currentPushNumber || handName !== currentPushHand) return;
+            
+            const humanPlayer = players.find(p => p.isHuman);
+            const hand = handName === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
+            const actualCard = hand[cardIndex];
+            
+            // Check if card is already selected
+            const existingIndex = selectedPushCards.findIndex(c => 
+                c.cardIndex === cardIndex && c.shape === actualCard.shape
+            );
+            
+            if (existingIndex >= 0) {
+                // Remove from selection
+                selectedPushCards.splice(existingIndex, 1);
+            } else {
+                // Add to selection
+                selectedPushCards.push({
+                    card: actualCard,
+                    cardIndex: cardIndex,
+                    shape: actualCard.shape
+                });
+            }
+            
+            renderGame();
+            renderPushEditControls();
+        }
+
+        async function executeCustomPush() {
+            if (selectedPushCards.length < 2 || !pushEditMode) return;
+            
+            const humanPlayerIndex = players.findIndex(p => p.isHuman);
+            const humanPlayer = players[humanPlayerIndex];
+            let sourceHand = currentPushHand === 'regular' ? humanPlayer.regularHand : humanPlayer.actionHand;
+            
+            // Verify first card can be played
+            if (!isCardPlayable(selectedPushCards[0].card)) {
+                showToast("Cannot push these cards - invalid sequence", "error");
+                return;
+            }
+
+            // Remove selected cards from hand
+            selectedPushCards.forEach(selectedCard => {
+                const cardIndex = sourceHand.findIndex(c => 
+                    c.shape === selectedCard.shape && c.number === selectedCard.card.number
+                );
+                if (cardIndex >= 0) {
+                    sourceHand.splice(cardIndex, 1);
+                }
+            });
+
+            // Exit edit mode
+            exitPushEditMode();
+            
+            renderGame();
+
+            // Play cards in selected order
+            for (const selectedCard of selectedPushCards) {
+                await animateCardPlayFromPosition(selectedCard.card, null, currentPushHand);
+                discardPile.push(selectedCard.card);
+                renderGame();
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            const lastCard = selectedPushCards[selectedPushCards.length - 1].card;
+            const numPlayed = selectedPushCards.length;
+
+            // Check win condition first
+            const hasWon = await checkWinCondition(humanPlayerIndex);
+            if (hasWon) return;
+
+            whotRequest = null;
+            if (lastCard.number !== 1) holdOnActive = false;
+
+            if (gameMode === 'multiplayer') {
+                await updateServerGameState({});
+            }
+
+            // Apply card effects based on last card played
+            switch (lastCard.number) {
+                case 1: 
+                    renderGame();
+                    break;
+                case 14:
+                    // General Market - deal one card to each other player for each 14 played
+                    const marketCardsCount = numPlayed;
+                    showToast(`General Market! Everyone gets ${marketCardsCount} card${marketCardsCount > 1 ? 's' : ''}`, 'info');
+                    
+                    for (let i = 0; i < players.length; i++) {
+                        if (i !== humanPlayerIndex && !eliminatedPlayers.includes(i)) {
+                            for (let j = 0; j < marketCardsCount; j++) {
+                                await dealCardToPlayer(i);
+                                await new Promise(r => setTimeout(r, 50));
+                            }
+                        }
+                    }
+                    
+                    renderGame();
+                    
+                    if (gameMode === 'multiplayer') {
+                        await updateServerGameState({});
+                    }
+                    
+                    // 14 is like Hold On - player continues their turn after effect
+                    return; // Don't call endTurn(), player keeps their turn
+                    break;
+                case 8: 
+                    turnsToSkip = numPlayed;
+                    endTurn();
+                    break;
+                case 20: 
+                    if (activeStack) { activeStack = null; }
+                    requestShapeFromPlayer();
+                    break;
+                case 2: case 5: 
+                    const penaltyCardNumber = lastCard.number;
+                    if (activeStack && activeStack.card === penaltyCardNumber) {
+                        activeStack.count += numPlayed;
+                    } else {
+                        activeStack = { card: penaltyCardNumber, count: numPlayed };
+                    }
+                    renderGame();
+                    
+                    if (gameMode === 'multiplayer') {
+                        await updateServerGameState({});
+                    }
+                    
+                    endTurn();
+                    break;
+                default:
+                    endTurn();
+                    break;
+            }
         }
 
         function updateStatus(message) {
@@ -2453,6 +2728,14 @@
                     
                     if (gameMode === 'multiplayer') {
                         await updateServerGameState({});
+                    }
+                    
+                    // 14 is like Hold On - player continues their turn
+                    shouldEndTurn = false;
+                    if (players[playerIdx].isHuman) {
+                        renderGame();
+                    } else {
+                        setTimeout(() => botTurn(), 1000);
                     }
                     break;
                 case 8:
@@ -3012,7 +3295,7 @@
             initializeApp(); // Ensure proper initialization
         };
         
-        // Debug helper (remove in production!)
+        // Debug helper (remove in production)
         window.debugGame = {
             players: () => players,
             gameState: () => ({
