@@ -324,27 +324,6 @@
 
     <!-- Multiplayer Lobby -->
     <div id="lobby-screen" class="fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 hidden">
-       
-
-    <!-- Ready Check Screen -->
-    <div id="ready-check-screen" class="fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 hidden">
-        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
-            <h2 class="text-3xl font-bold mb-2">Ready Check</h2>
-            <p class="text-gray-400 mb-6">Are you ready to start the game?</p>
-            <div class="mb-6">
-                <div id="ready-players-list" class="space-y-2 mb-4"></div>
-            </div>
-            <div class="flex gap-4">
-                <button id="ready-yes-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                    ✓ Ready
-                </button>
-                <button id="ready-no-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                    ✗ Not Ready
-                </button>
-            </div>
-            <div id="waiting-for-ready" class="mt-4 text-gray-400 hidden">Waiting for other players...</div>
-        </div>
-    </div>
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
             <h2 class="text-3xl font-bold mb-2">Game Lobby</h2>
             <div class="mb-4">
@@ -368,6 +347,26 @@
                 </button>
             </div>
             <div id="waiting-message" class="mt-4 text-gray-400">Waiting for host to start game...</div>
+        </div>
+    </div>
+
+    <!-- Ready Check Screen -->
+    <div id="ready-check-screen" class="fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl text-center w-full max-w-md">
+            <h2 class="text-3xl font-bold mb-2">Ready Check</h2>
+            <p class="text-gray-400 mb-6">Are you ready to start the game?</p>
+            <div class="mb-6">
+                <div id="ready-players-list" class="space-y-2 mb-4"></div>
+            </div>
+            <div class="flex gap-4">
+                <button id="ready-yes-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    ✓ Ready
+                </button>
+                <button id="ready-no-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    ✗ Not Ready
+                </button>
+            </div>
+            <div id="waiting-for-ready" class="mt-4 text-gray-400 hidden">Waiting for other players...</div>
         </div>
     </div>
 
@@ -683,11 +682,13 @@
             window.firebase.onValue(gameStateRef, (snapshot) => {
                 const gameData = snapshot.val();
                 if (gameData) {
+                    console.log('Game status:', gameData.status);
                     if (gameData.status === 'ready_check') {
                         showReadyCheck(gameData);
                         // Update ready players list in real time
                         updateReadyPlayersList(gameData.readyPlayers || {}, gameData.players);
                     } else if (gameData.status === 'playing') {
+                        console.log('Starting multiplayer game');
                         startMultiplayerGame(gameData);
                     }
                 }
@@ -765,38 +766,31 @@
         });
 
         function startMultiplayerGame(gameData) {
+            console.log('Starting multiplayer game with status:', gameData.status);
+            
             if (gameData.status === 'ready_check') {
                 showReadyCheck(gameData);
             } else if (gameData.status === 'playing') {
+                // Hide all screens and show game
                 lobbyScreen.classList.add('hidden');
                 lobbyScreen.classList.remove('flex');
-                document.getElementById('ready-check-screen').classList.add('hidden');
-                document.getElementById('ready-check-screen').classList.remove('flex');
+                readyCheckScreen.classList.add('hidden');
+                readyCheckScreen.classList.remove('flex');
                 gameContainer.classList.remove('hidden');
                 gameContainer.classList.add('flex');
                 
-                // Convert Firebase players to game format
-                const firebasePlayers = Object.values(gameData.players);
-                players = firebasePlayers.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    isHuman: p.id === playerId,
-                    regularHand: [],
-                    actionHand: p.id === playerId ? [] : undefined,
-                    hand: p.id === playerId ? undefined : [],
-                    avatar: `https://placehold.co/50x50/4a5568/ffffff?text=${p.name.charAt(0)}`
-                }));
-
-                // Start the actual game
-                initializeMultiplayerGame(gameData.gameState);
+                console.log('Initializing multiplayer game state');
+                
+                // Initialize the multiplayer game
+                initializeMultiplayerGame(gameData);
             }
         }
 
         function showReadyCheck(gameData) {
             lobbyScreen.classList.add('hidden');
             lobbyScreen.classList.remove('flex');
-            document.getElementById('ready-check-screen').classList.remove('hidden');
-            document.getElementById('ready-check-screen').classList.add('flex');
+            readyCheckScreen.classList.remove('hidden');
+            readyCheckScreen.classList.add('flex');
             
             // Update ready players list
             updateReadyPlayersList(gameData.readyPlayers || {}, gameData.players);
@@ -884,28 +878,72 @@
 
         async function startGameAfterReadyCheck(gameData) {
             try {
+                console.log('Starting game after ready check');
+                
                 const playerList = Object.values(gameData.players);
                 const randomStarterIndex = Math.floor(Math.random() * playerList.length);
+                
+                // Create initial deck
+                const initialDeck = createDeck();
+                shuffleDeck(initialDeck);
+                
+                // Deal cards to players
+                const playersWithHands = {};
+                playerList.forEach((player, index) => {
+                    playersWithHands[player.id] = {
+                        ...player,
+                        regularHand: [],
+                        actionHand: [],
+                        hand: []
+                    };
+                });
+                
+                // Deal 6 cards to each player
+                let deckCopy = [...initialDeck];
+                for (let i = 0; i < 6; i++) {
+                    for (const player of playerList) {
+                        if (deckCopy.length === 0) break;
+                        const card = deckCopy.pop();
+                        
+                        if (player.id === playerId) {
+                            // Human player - separate into action and regular hands
+                            if (ACTION_CARDS.includes(card.number)) {
+                                playersWithHands[player.id].actionHand.push(card);
+                            } else {
+                                playersWithHands[player.id].regularHand.push(card);
+                            }
+                        } else {
+                            // AI player - single hand
+                            playersWithHands[player.id].hand.push(card);
+                        }
+                    }
+                }
+                
+                // Find first non-action card for discard pile
+                let firstCardIndex = deckCopy.findIndex(card => !ACTION_CARDS.includes(card.number));
+                if (firstCardIndex === -1) { firstCardIndex = 0; }
+                const initialDiscardPile = [deckCopy.splice(firstCardIndex, 1)[0]];
                 
                 const gameUpdate = {
                     status: 'playing',
                     gameState: {
                         currentPlayerIndex: randomStarterIndex,
-                        deck: createDeck(),
-                        discardPile: [],
+                        drawPile: deckCopy,
+                        discardPile: initialDiscardPile,
                         activeStack: null,
                         whotRequest: null,
                         holdOnActive: false,
                         turnsToSkip: 0,
                         generalMarketState: { active: false, initiator: null, respondedMask: [], playersWhoPlayed: [] },
-                        eliminatedPlayers: []
+                        eliminatedPlayers: [],
+                        players: playersWithHands
                     },
                     players: gameData.players
                 };
 
-                shuffleDeck(gameUpdate.gameState.deck);
-                
+                console.log('Updating server with initial game state');
                 await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}`), gameUpdate);
+                
             } catch (error) {
                 console.error('Error starting game after ready check:', error);
             }
@@ -916,75 +954,75 @@
                 await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}/status`), 'waiting');
                 await window.firebase.remove(window.firebase.ref(window.firebase.database, `games/${currentGameId}/readyPlayers`));
                 
-                document.getElementById('ready-check-screen').classList.add('hidden');
-                document.getElementById('ready-check-screen').classList.remove('flex');
+                readyCheckScreen.classList.add('hidden');
+                readyCheckScreen.classList.remove('flex');
                 showLobby();
             } catch (error) {
                 console.error('Error returning to lobby:', error);
             }
         }
 
-        async function initializeMultiplayerGame(initialGameState) {
-            deck = initialGameState.deck;
-            discardPile = initialGameState.discardPile;
-            drawPile = [...deck];
-            currentPlayerIndex = initialGameState.currentPlayerIndex;
-            activeStack = initialGameState.activeStack;
-            whotRequest = initialGameState.whotRequest;
-            holdOnActive = initialGameState.holdOnActive;
-            turnsToSkip = initialGameState.turnsToSkip;
-            generalMarketState = initialGameState.generalMarketState;
-            eliminatedPlayers = initialGameState.eliminatedPlayers || [];
-
-            updateStatus("Dealing cards...");
-            renderGame();
-            await new Promise(r => setTimeout(r, 800));
-
-            // Deal initial cards
-            for (let i = 0; i < 6; i++) {
-                for(let j = 0; j < players.length; j++) {
-                    if (eliminatedPlayers.includes(j)) continue;
-                    const card = drawPile.pop();
-                    if (card) {
-                        const player = players[j];
-                        if (player.isHuman) {
-                            if (ACTION_CARDS.includes(card.number)) {
-                                player.actionHand.push(card);
-                            } else {
-                                player.regularHand.push(card);
-                            }
-                        } else {
-                            player.hand.push(card);
-                        }
+        async function initializeMultiplayerGame(gameData) {
+            console.log('Initializing multiplayer game', gameData);
+            
+            // Initialize game state from server
+            const serverGameState = gameData.gameState;
+            
+            // Set up players array
+            players = [];
+            Object.values(gameData.players).forEach(serverPlayer => {
+                const gamePlayer = {
+                    id: serverPlayer.id,
+                    name: serverPlayer.name,
+                    isHuman: serverPlayer.id === playerId,
+                    avatar: `https://placehold.co/50x50/4a5568/ffffff?text=${serverPlayer.name.charAt(0)}`
+                };
+                
+                // Set up hands based on server data
+                if (serverGameState.players && serverGameState.players[serverPlayer.id]) {
+                    const serverPlayerData = serverGameState.players[serverPlayer.id];
+                    if (gamePlayer.isHuman) {
+                        gamePlayer.regularHand = serverPlayerData.regularHand || [];
+                        gamePlayer.actionHand = serverPlayerData.actionHand || [];
+                    } else {
+                        gamePlayer.hand = serverPlayerData.hand || [];
                     }
-                    await new Promise(r => setTimeout(r, 50)); // Small delay for visual effect
+                } else {
+                    // Fallback initialization
+                    if (gamePlayer.isHuman) {
+                        gamePlayer.regularHand = [];
+                        gamePlayer.actionHand = [];
+                    } else {
+                        gamePlayer.hand = [];
+                    }
                 }
-            }
+                
+                players.push(gamePlayer);
+            });
             
-            // Set first discard card
-            let firstCardIndex = drawPile.findIndex(card => !ACTION_CARDS.includes(card.number));
-            if (firstCardIndex === -1) { firstCardIndex = 0; }
-            discardPile = [drawPile.splice(firstCardIndex, 1)[0]];
+            console.log('Players initialized:', players);
             
+            // Initialize game variables
+            drawPile = serverGameState.drawPile || [];
+            discardPile = serverGameState.discardPile || [];
+            currentPlayerIndex = serverGameState.currentPlayerIndex || 0;
+            activeStack = serverGameState.activeStack;
+            whotRequest = serverGameState.whotRequest;
+            holdOnActive = serverGameState.holdOnActive || false;
+            turnsToSkip = serverGameState.turnsToSkip || 0;
+            generalMarketState = serverGameState.generalMarketState || { active: false, initiator: null, respondedMask: [], playersWhoPlayed: [] };
+            eliminatedPlayers = serverGameState.eliminatedPlayers || [];
+            
+            console.log('Game state initialized');
+            
+            // Render the game
             renderGame();
             updateStatusMessage();
-
-            // Update server with initial hands (only the host should do this)
-            if (isHost) {
-                await updateServerGameState({
-                    discardPile,
-                    currentPlayerIndex,
-                    activeStack,
-                    whotRequest,
-                    holdOnActive,
-                    turnsToSkip,
-                    generalMarketState,
-                    eliminatedPlayers
-                });
-            }
-
+            
             // Set up real-time sync
             setupMultiplayerSync();
+            
+            console.log('Multiplayer game setup complete');
         }
 
         function setupMultiplayerSync() {
@@ -998,6 +1036,9 @@
         }
 
         function syncGameState(serverState) {
+            console.log('Syncing game state:', serverState);
+            
+            drawPile = serverState.drawPile || [];
             discardPile = serverState.discardPile || [];
             currentPlayerIndex = serverState.currentPlayerIndex || 0;
             activeStack = serverState.activeStack;
@@ -1009,7 +1050,7 @@
 
             // Sync players' hands
             if (serverState.players) {
-                players.forEach((player, index) => {
+                players.forEach((player) => {
                     const serverPlayer = serverState.players[player.id];
                     if (serverPlayer) {
                         if (player.isHuman) {
@@ -1050,6 +1091,15 @@
                 });
 
                 const fullUpdate = {
+                    drawPile,
+                    discardPile,
+                    currentPlayerIndex,
+                    activeStack,
+                    whotRequest,
+                    holdOnActive,
+                    turnsToSkip,
+                    generalMarketState,
+                    eliminatedPlayers,
                     ...updates,
                     players: playersData,
                     updatedAt: window.firebase.serverTimestamp()
@@ -1183,16 +1233,7 @@
             updateStatusMessage();
 
             if (gameMode === 'multiplayer') {
-                await updateServerGameState({
-                    discardPile,
-                    currentPlayerIndex,
-                    activeStack,
-                    whotRequest,
-                    holdOnActive,
-                    turnsToSkip,
-                    generalMarketState,
-                    eliminatedPlayers
-                });
+                await updateServerGameState({});
             }
         }
 
@@ -1292,16 +1333,7 @@
                 renderEliminatedBar();
                 
                 if (gameMode === 'multiplayer') {
-                    await updateServerGameState({
-                        discardPile,
-                        currentPlayerIndex,
-                        activeStack,
-                        whotRequest,
-                        holdOnActive,
-                        turnsToSkip,
-                        generalMarketState,
-                        eliminatedPlayers
-                    });
+                    await updateServerGameState({});
                 }
             }
         }
@@ -1318,9 +1350,6 @@
                 eliminatedBar.classList.add('hidden');
             }
         }
-
-        // Rest of the existing game logic continues...
-        // (I'll include the remaining functions in the next part due to length constraints)
 
         // DOM element references
         const leftHandDiv = document.getElementById('left-hand');
@@ -1725,16 +1754,7 @@
                         renderGame();
                         
                         if (gameMode === 'multiplayer') {
-                            await updateServerGameState({
-                                discardPile,
-                                currentPlayerIndex,
-                                activeStack,
-                                whotRequest,
-                                holdOnActive,
-                                turnsToSkip,
-                                generalMarketState,
-                                eliminatedPlayers
-                            });
+                            await updateServerGameState({});
                         }
                         
                         checkIfMarketIsOver();
@@ -1790,16 +1810,7 @@
                     renderGame();
                     
                     if (gameMode === 'multiplayer') {
-                        await updateServerGameState({
-                            discardPile,
-                            currentPlayerIndex,
-                            activeStack,
-                            whotRequest,
-                            holdOnActive,
-                            turnsToSkip,
-                            generalMarketState,
-                            eliminatedPlayers
-                        });
+                        await updateServerGameState({});
                     }
                     
                     checkIfMarketIsOver();
@@ -1899,16 +1910,7 @@
             if (lastCard.number !== 1) holdOnActive = false;
 
             if (gameMode === 'multiplayer') {
-                await updateServerGameState({
-                    discardPile,
-                    currentPlayerIndex,
-                    activeStack,
-                    whotRequest,
-                    holdOnActive,
-                    turnsToSkip,
-                    generalMarketState,
-                    eliminatedPlayers
-                });
+                await updateServerGameState({});
             }
 
             switch (lastCard.number) {
@@ -1923,16 +1925,7 @@
                     renderGame();
                     
                     if (gameMode === 'multiplayer') {
-                        await updateServerGameState({
-                            discardPile,
-                            currentPlayerIndex,
-                            activeStack,
-                            whotRequest,
-                            holdOnActive,
-                            turnsToSkip,
-                            generalMarketState,
-                            eliminatedPlayers
-                        });
+                        await updateServerGameState({});
                     }
                     
                     players.forEach((p, i) => {
@@ -1957,16 +1950,7 @@
                     renderGame();
                     
                     if (gameMode === 'multiplayer') {
-                        await updateServerGameState({
-                            discardPile,
-                            currentPlayerIndex,
-                            activeStack,
-                            whotRequest,
-                            holdOnActive,
-                            turnsToSkip,
-                            generalMarketState,
-                            eliminatedPlayers
-                        });
+                        await updateServerGameState({});
                     }
                     
                     endTurn();
@@ -1989,16 +1973,7 @@
             renderGame();
             
             if (gameMode === 'multiplayer') {
-                await updateServerGameState({
-                    discardPile,
-                    currentPlayerIndex,
-                    activeStack,
-                    whotRequest,
-                    holdOnActive,
-                    turnsToSkip,
-                    generalMarketState,
-                    eliminatedPlayers
-                });
+                await updateServerGameState({});
             }
             
             await applyCardEffect(card, playerIdx);
@@ -2029,16 +2004,7 @@
                     renderGame();
                     
                     if (gameMode === 'multiplayer') {
-                        await updateServerGameState({
-                            discardPile,
-                            currentPlayerIndex,
-                            activeStack,
-                            whotRequest,
-                            holdOnActive,
-                            turnsToSkip,
-                            generalMarketState,
-                            eliminatedPlayers
-                        });
+                        await updateServerGameState({});
                     }
                     
                     players.forEach((p, i) => {
@@ -2069,16 +2035,7 @@
                         renderGame();
                         
                         if (gameMode === 'multiplayer') {
-                            await updateServerGameState({
-                                discardPile,
-                                currentPlayerIndex,
-                                activeStack,
-                                whotRequest,
-                                holdOnActive,
-                                turnsToSkip,
-                                generalMarketState,
-                                eliminatedPlayers
-                            });
+                            await updateServerGameState({});
                         }
                     }
                     break;
@@ -2091,16 +2048,7 @@
                     renderGame();
                     
                     if (gameMode === 'multiplayer') {
-                        await updateServerGameState({
-                            discardPile,
-                            currentPlayerIndex,
-                            activeStack,
-                            whotRequest,
-                            holdOnActive,
-                            turnsToSkip,
-                            generalMarketState,
-                            eliminatedPlayers
-                        });
+                        await updateServerGameState({});
                     }
                     break;
             }
@@ -2119,16 +2067,7 @@
             currentPlayerIndex = nextPlayerIndex;
             
             if (gameMode === 'multiplayer') {
-                await updateServerGameState({
-                    discardPile,
-                    currentPlayerIndex,
-                    activeStack,
-                    whotRequest,
-                    holdOnActive,
-                    turnsToSkip,
-                    generalMarketState,
-                    eliminatedPlayers
-                });
+                await updateServerGameState({});
             }
             
             setTimeout(() => {
@@ -2147,16 +2086,7 @@
                     generalMarketState.respondedMask[humanPlayerIndex] = true;
                     
                     if (gameMode === 'multiplayer') {
-                        await updateServerGameState({
-                            discardPile,
-                            currentPlayerIndex,
-                            activeStack,
-                            whotRequest,
-                            holdOnActive,
-                            turnsToSkip,
-                            generalMarketState,
-                            eliminatedPlayers
-                        });
+                        await updateServerGameState({});
                     }
                     
                     checkIfMarketIsOver();
@@ -2179,16 +2109,7 @@
             renderGame();
             
             if (gameMode === 'multiplayer') {
-                await updateServerGameState({
-                    discardPile,
-                    currentPlayerIndex,
-                    activeStack,
-                    whotRequest,
-                    holdOnActive,
-                    turnsToSkip,
-                    generalMarketState,
-                    eliminatedPlayers
-                });
+                await updateServerGameState({});
             }
             
             endTurn();
@@ -2222,16 +2143,7 @@
                     activeStack = null;
                     
                     if (gameMode === 'multiplayer') {
-                        await updateServerGameState({
-                            discardPile,
-                            currentPlayerIndex,
-                            activeStack,
-                            whotRequest,
-                            holdOnActive,
-                            turnsToSkip,
-                            generalMarketState,
-                            eliminatedPlayers
-                        });
+                        await updateServerGameState({});
                     }
                     
                     endTurn();
@@ -2275,16 +2187,7 @@
                     if (lastCard.number !== 1) holdOnActive = false;
 
                     if (gameMode === 'multiplayer') {
-                        await updateServerGameState({
-                            discardPile,
-                            currentPlayerIndex,
-                            activeStack,
-                            whotRequest,
-                            holdOnActive,
-                            turnsToSkip,
-                            generalMarketState,
-                            eliminatedPlayers
-                        });
+                        await updateServerGameState({});
                     }
 
                     await applyCardEffect(lastCard, currentPlayerIndex);
@@ -2303,16 +2206,7 @@
                 await dealCardToPlayer(currentPlayerIndex);
                 
                 if (gameMode === 'multiplayer') {
-                    await updateServerGameState({
-                        discardPile,
-                        currentPlayerIndex,
-                        activeStack,
-                        whotRequest,
-                        holdOnActive,
-                        turnsToSkip,
-                        generalMarketState,
-                        eliminatedPlayers
-                    });
+                    await updateServerGameState({});
                 }
                 
                 endTurn();
@@ -2350,16 +2244,7 @@
                 generalMarketState.respondedMask[botIndex] = true;
                 
                 if (gameMode === 'multiplayer') {
-                    await updateServerGameState({
-                        discardPile,
-                        currentPlayerIndex,
-                        activeStack,
-                        whotRequest,
-                        holdOnActive,
-                        turnsToSkip,
-                        generalMarketState,
-                        eliminatedPlayers
-                    });
+                    await updateServerGameState({});
                 }
                 
                 checkIfMarketIsOver();
@@ -2397,16 +2282,7 @@
             renderGame();
             
             if (gameMode === 'multiplayer') {
-                await updateServerGameState({
-                    discardPile,
-                    currentPlayerIndex,
-                    activeStack,
-                    whotRequest,
-                    holdOnActive,
-                    turnsToSkip,
-                    generalMarketState,
-                    eliminatedPlayers
-                });
+                await updateServerGameState({});
             }
             
             if (!players[currentPlayerIndex].isHuman && !eliminatedPlayers.includes(currentPlayerIndex)) {
@@ -2439,16 +2315,7 @@
             renderGame();
             
             if (gameMode === 'multiplayer') {
-                await updateServerGameState({
-                    discardPile,
-                    currentPlayerIndex,
-                    activeStack,
-                    whotRequest,
-                    holdOnActive,
-                    turnsToSkip,
-                    generalMarketState,
-                    eliminatedPlayers
-                });
+                await updateServerGameState({});
             }
             
             endTurn();
@@ -2648,23 +2515,6 @@
             }
         }
 
-        // Additional helper functions for multiplayer synchronization
-        async function syncPlayerHands(serverPlayers) {
-            if (!serverPlayers) return;
-            
-            players.forEach(player => {
-                const serverPlayer = serverPlayers[player.id];
-                if (serverPlayer) {
-                    if (player.isHuman) {
-                        player.regularHand = serverPlayer.regularHand || [];
-                        player.actionHand = serverPlayer.actionHand || [];
-                    } else {
-                        player.hand = serverPlayer.hand || [];
-                    }
-                }
-            });
-        }
-
         // Error handling for Firebase operations
         window.addEventListener('online', () => {
             if (gameMode === 'multiplayer' && currentGameId) {
@@ -2689,8 +2539,8 @@
             gameModeScreen.classList.remove('flex');
             lobbyScreen.classList.add('hidden');
             lobbyScreen.classList.remove('flex');
-            document.getElementById('ready-check-screen').classList.add('hidden');
-            document.getElementById('ready-check-screen').classList.remove('flex');
+            readyCheckScreen.classList.add('hidden');
+            readyCheckScreen.classList.remove('flex');
             gameContainer.classList.add('hidden');
             gameContainer.classList.remove('flex');
             
