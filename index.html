@@ -887,9 +887,9 @@
                 const initialDeck = createDeck();
                 shuffleDeck(initialDeck);
                 
-                // Deal cards to players
+                // Deal cards to players - ALL players get proper hand structure
                 const playersWithHands = {};
-                playerList.forEach((player, index) => {
+                playerList.forEach((player) => {
                     playersWithHands[player.id] = {
                         ...player,
                         regularHand: [],
@@ -905,17 +905,17 @@
                         if (deckCopy.length === 0) break;
                         const card = deckCopy.pop();
                         
-                        if (player.id === playerId) {
-                            // Human player - separate into action and regular hands
-                            if (ACTION_CARDS.includes(card.number)) {
-                                playersWithHands[player.id].actionHand.push(card);
-                            } else {
-                                playersWithHands[player.id].regularHand.push(card);
-                            }
+                        // All human players get action/regular separation
+                        // For this game, we'll treat all players as having both hand types
+                        // and let the client decide how to display them
+                        if (ACTION_CARDS.includes(card.number)) {
+                            playersWithHands[player.id].actionHand.push(card);
                         } else {
-                            // AI player - single hand
-                            playersWithHands[player.id].hand.push(card);
+                            playersWithHands[player.id].regularHand.push(card);
                         }
+                        
+                        // Also add to single hand for AI display compatibility
+                        playersWithHands[player.id].hand.push(card);
                     }
                 }
                 
@@ -941,7 +941,7 @@
                     players: gameData.players
                 };
 
-                console.log('Updating server with initial game state');
+                console.log('Updating server with initial game state', gameUpdate.gameState.players);
                 await window.firebase.set(window.firebase.ref(window.firebase.database, `games/${currentGameId}`), gameUpdate);
                 
             } catch (error) {
@@ -982,10 +982,15 @@
                 if (serverGameState.players && serverGameState.players[serverPlayer.id]) {
                     const serverPlayerData = serverGameState.players[serverPlayer.id];
                     if (gamePlayer.isHuman) {
+                        // Human player - use separate action and regular hands
                         gamePlayer.regularHand = serverPlayerData.regularHand || [];
                         gamePlayer.actionHand = serverPlayerData.actionHand || [];
                     } else {
-                        gamePlayer.hand = serverPlayerData.hand || [];
+                        // AI player - use single hand array (combine regular and action hands for AI)
+                        gamePlayer.hand = [
+                            ...(serverPlayerData.regularHand || []),
+                            ...(serverPlayerData.actionHand || [])
+                        ];
                     }
                 } else {
                     // Fallback initialization
@@ -1000,7 +1005,13 @@
                 players.push(gamePlayer);
             });
             
-            console.log('Players initialized:', players);
+            console.log('Players initialized with hands:', players.map(p => ({
+                name: p.name,
+                isHuman: p.isHuman,
+                regularCards: p.regularHand ? p.regularHand.length : 0,
+                actionCards: p.actionHand ? p.actionHand.length : 0,
+                totalCards: p.hand ? p.hand.length : 0
+            })));
             
             // Initialize game variables
             drawPile = serverGameState.drawPile || [];
@@ -2560,7 +2571,7 @@
             initializeApp(); // Ensure proper initialization
         };
         
-        // Debug helper (remove in production!)
+        // Debug helper (remove in production)
         window.debugGame = {
             players: () => players,
             gameState: () => ({
