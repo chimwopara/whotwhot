@@ -1334,9 +1334,10 @@
                 
                 // Deal cards to players - ALL players get proper hand structure
                 const playersWithHands = {};
-                playerList.forEach((player) => {
-                    playersWithHands[player.id] = {
-                        ...player,
+console.log('Setting up initial hands for players:', playerList.map(p => ({id: p.id, name: p.name})));
+playerList.forEach((player) => {
+    playersWithHands[player.id] = {
+        ...player,
                         regularHand: [],
                         actionHand: [],
                         hand: []
@@ -1414,14 +1415,20 @@
             const serverGameState = gameData.gameState;
             
             // Set up players array
-            players = [];
-            Object.values(gameData.players).forEach(serverPlayer => {
-                const gamePlayer = {
-                    id: serverPlayer.id,
-                    name: serverPlayer.name,
-                    isHuman: serverPlayer.id === playerId,
-                    avatar: `https://placehold.co/50x50/4a5568/ffffff?text=${serverPlayer.name.charAt(0)}`
-                };
+players = [];
+console.log('Initializing players. Current playerId:', playerId);
+console.log('Server players:', Object.values(gameData.players).map(p => ({id: p.id, name: p.name})));
+
+Object.values(gameData.players).forEach(serverPlayer => {
+    const isThisPlayerHuman = serverPlayer.id === playerId;
+    console.log(`Player ${serverPlayer.name} (${serverPlayer.id}) - isHuman: ${isThisPlayerHuman}`);
+    
+    const gamePlayer = {
+        id: serverPlayer.id,
+        name: serverPlayer.name,
+        isHuman: isThisPlayerHuman,
+        avatar: `https://placehold.co/50x50/4a5568/ffffff?text=${serverPlayer.name.charAt(0)}`
+    };
                 
                 // Set up hands based on server data
                 if (serverGameState.players && serverGameState.players[serverPlayer.id]) {
@@ -1492,7 +1499,18 @@
         }
 
         function syncGameState(serverState) {
-            console.log('Syncing game state:', serverState);
+    console.log('Syncing game state. Current playerId:', playerId);
+    console.log('Server state players:', serverState.players ? Object.keys(serverState.players) : 'none');
+    
+    // Validate that our player still exists in server state
+    if (serverState.players && !serverState.players[playerId]) {
+        console.error('ERROR: Current player not found in server state!', {
+            playerId: playerId,
+            serverPlayers: Object.keys(serverState.players)
+        });
+        showToast('Connection error - player not found in game', 'error');
+        return;
+    }
             
             drawPile = serverState.drawPile || [];
             discardPile = serverState.discardPile || [];
@@ -2706,13 +2724,13 @@
 
             switch (card.number) {
                 case 1:
-                    shouldEndTurn = false;
-                    if (players[playerIdx].isHuman) {
-                        renderGame();
-                    } else {
-                        setTimeout(() => botTurn(), 1000);
-                    }
-                    break;
+    shouldEndTurn = false;
+    if (players[playerIdx].isHuman || gameMode === 'multiplayer') {
+        renderGame();
+    } else {
+        setTimeout(() => botTurn(), 1000);
+    }
+    break;
                 case 14:
                     // General Market - automatically deal one card to every other player
                     showToast('General Market! Everyone gets a card', 'info');
@@ -2731,13 +2749,13 @@
                     }
                     
                     // 14 is like Hold On - player continues their turn
-                    shouldEndTurn = false;
-                    if (players[playerIdx].isHuman) {
-                        renderGame();
-                    } else {
-                        setTimeout(() => botTurn(), 1000);
-                    }
-                    break;
+shouldEndTurn = false;
+if (players[playerIdx].isHuman || gameMode === 'multiplayer') {
+    renderGame();
+} else {
+    setTimeout(() => botTurn(), 1000);
+}
+break;
                 case 8:
                     turnsToSkip = 1;
                     break;
@@ -2796,11 +2814,12 @@
             }
             
             setTimeout(() => {
-                renderGame();
-                if (!players[currentPlayerIndex].isHuman && !eliminatedPlayers.includes(currentPlayerIndex)) {
-                    botTurn();
-                }
-            }, 800);
+    renderGame();
+    // In multiplayer, never call botTurn - all moves come from network sync
+    if (gameMode === 'single' && !players[currentPlayerIndex].isHuman && !eliminatedPlayers.includes(currentPlayerIndex)) {
+        botTurn();
+    }
+}, 800);
         }
 
         async function handlePlayerDraw() {
